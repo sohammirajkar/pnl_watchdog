@@ -1,0 +1,26 @@
+services:
+  # 1. The FastAPI Application
+  web:
+    build: .
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db/pnl_watchdog
+    depends_on:
+      - db
+
+  # 2. The Database (PostgreSQL)
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=pnl_watchdog
+
+volumes:
+  postgres_data:

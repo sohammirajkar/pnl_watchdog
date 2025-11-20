@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: pnl-watchdog
+Version: 0.1.0
+Summary: A safety tool for algo-traders to detect silent broker failures.
+Author-email: Your Name <your.email@example.com>
+Project-URL: Homepage, https://github.com/yourusername/pnl-watchdog
+Project-URL: Cloud Version, https://pnlwatchdog.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.25.0
