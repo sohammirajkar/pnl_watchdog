@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: pnl-watchdog
-Version: 0.1.0
+Version: 0.2.1
 Summary: A safety tool for algo-traders to detect silent broker failures.
-Author-email: Your Name <your.email@example.com>
+Author-email: Soham Mirajkar <b25bs1197@iitj.ac.in>
 Project-URL: Homepage, https://github.com/yourusername/pnl-watchdog
 Project-URL: Cloud Version, https://pnlwatchdog.com
 Classifier: Programming Language :: Python :: 3
@@ -12,3 +12,20 @@ Classifier: Topic :: Office/Business :: Financial :: Investment
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 Requires-Dist: requests>=2.25.0
+Requires-Dist: ccxt>=3.0.0
+Requires-Dist: smartapi-python>=1.3.4
+Requires-Dist: logzero
+Requires-Dist: pyotp
+Requires-Dist: websocket-client
+
+# 🐶 PnL Watchdog
+
+**Stop losing money to silent failures.**
+
+Every quant has been there: Your bot logs say `Order Filled`, but your broker API timed out and you are actually flat. You don't find out until market close.
+
+`pnl-watchdog` is a lightweight Python library that double-checks your broker's ledger immediately after your bot trades. If the trade is missing, it alerts you.
+
+### Installation
+```bash
+pip install pnl-watchdog
