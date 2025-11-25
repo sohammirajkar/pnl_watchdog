@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PnL Watchdog | Pro Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Base styles for a professional, dark theme */
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Card styling - increased depth/shadow */
+        .card {
+            background-color: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            /* Deeper shadow */
+            border: 1px solid #334155;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Highlight for the P90 Critical card */
+        .card-critical {
+            border: 2px solid #facc15;
+            /* Yellow border */
+            background-color: #263851;
+            /* Slightly different dark blue */
+        }
+
+        /* Styles for the new alert card */
+        .card-alert-active {
+            border: 3px solid #ef4444;
+            /* Red border */
+            background-color: #450a0a;
+            /* Darker red background */
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-verified {
+            background-color: #064e3b;
+            color: #34d399;
+        }
+
+        .status-anomaly {
+            background-color: #450a0a;
+            color: #f87171;
+        }
+
+        /* Table stripe and hover effect */
+        tr:nth-child(even) {
+            background-color: #162032;
+        }
+
+        tr:hover {
+            background-color: #2c3e50;
+        }
+
+        /* Key Input Styling - focus on utility */
+        input[type="text"],
+        input[type="number"],
+        select {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            /* Monospace font for the key */
+        }
+
+        select {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: background-color 0.15s;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+    </style>
+</head>
+
+<body class="p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-4xl font-extrabold text-white flex items-center gap-3">
+                    📈 PnL Watchdog <span
+                        class="text-blue-400 text-sm bg-blue-900/30 px-3 py-1 rounded-full tracking-wider">PRO
+                        EXECUTION</span>
+                </h1>
+                <p class="text-gray-400 mt-2 text-sm" id="lastUpdated">Loading...</p>
+                <p class="text-gray-500 text-xs mt-1">Total Trades Monitored (Unfiltered): <span id="totalTrades"
+                        class="font-semibold text-gray-400">--</span></p>
+            </div>
+            <div class="text-sm text-gray-500 bg-gray-700/20 px-3 py-1 rounded">
+                Auto-refreshing every 5 seconds.
+            </div>
+        </div>
+
+        <!-- API Key Input Field -->
+        <div class="mb-6 p-4 card flex items-center gap-4">
+            <label for="proKeyInput" class="text-blue-400 font-bold whitespace-nowrap text-lg">API Key:</label>
+            <input type="text" id="proKeyInput" placeholder="Enter your secret X-Pro-Key (e.g., sk_test_123)"
+                class="w-full focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+            <span id="keyStatus" class="text-xs text-gray-500"></span>
+        </div>
+
+        <!-- Broker Management Panel (NEW) -->
+        <div class="card mb-6 p-4 bg-gray-800/50">
+            <h3 class="text-white font-semibold mb-4 text-xl border-b border-gray-700 pb-2">Broker Profile Management
+                (BYOB)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div class="md:col-span-2">
+                    <label for="newBrokerName" class="text-gray-400 text-sm block mb-1">New Broker Name (e.g., Jane's
+                        Algo Broker):</label>
+                    <input type="text" id="newBrokerName" placeholder="Broker ID" class="w-full font-sans">
+                </div>
+                <div>
+                    <label for="newBrokerP90" class="text-gray-400 text-sm block mb-1">Expected P90 Latency
+                        (ms):</label>
+                    <input type="number" id="newBrokerP90" value="100" min="10" class="w-full text-center font-sans">
+                </div>
+                <button id="addBrokerBtn" class="btn-primary w-full h-10">
+                    + Add/Update Broker Profile
+                </button>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-700 text-sm">
+                <p class="text-gray-400">Active Custom Brokers: <span id="customBrokerList"
+                        class="font-mono text-white text-xs">None.</span></p>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="mb-6 p-4 card flex items-center flex-wrap justify-between gap-4 bg-gray-800/50">
+            <div class="flex items-center gap-4">
+                <!-- Time Range Filter -->
+                <div>
+                    <label for="timeRangeFilter" class="text-gray-400 text-sm">Time Range:</label>
+                    <select id="timeRangeFilter"
+                        class="p-2 bg-gray-900 border border-gray-600 rounded text-white text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="20">Last 20 Logs (Real-time)</option>
+                        <option value="50">Last 50 Logs</option>
+                        <option value="100">Last 100 Logs</option>
+                        <option value="all">All Logs</option>
+                    </select>
+                </div>
+
+                <!-- Broker Filter (Dynamically Populated) -->
+                <div>
+                    <label for="brokerFilter" class="text-gray-400 text-sm">Filter by Broker:</label>
+                    <select id="brokerFilter"
+                        class="p-2 bg-gray-900 border border-gray-600 rounded text-white text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="all">All Brokers</option>
+                        <!-- Dynamic options here -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Alert Threshold Input (Active Risk Management) -->
+            <div class="ml-auto flex items-center gap-2 bg-red-900/20 p-2 rounded-lg border border-red-700/50">
+                <label for="alertThreshold" class="text-red-400 text-sm font-bold whitespace-nowrap">Max Latency Alert
+                    (ms):</label>
+                <input type="number" id="alertThreshold" value="150" min="1"
+                    class="w-24 text-center bg-gray-900 border-red-700 text-red-400 focus:ring-red-500 focus:border-red-500">
+                <div id="alertStatus"
+                    class="w-5 h-5 rounded-full bg-green-500 ring-2 ring-green-300 transition-colors duration-300"
+                    title="Alert Status: Nominal"></div>
+            </div>
+        </div>
+
+        <!-- Metrics Grid (Execution Speed Focus) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="card" id="avgLatencyCard">
+                <h3 class="text-gray-400 text-sm uppercase font-semibold">Avg Latency (Filtered)</h3>
+                <p class="text-4xl font-bold text-white mt-2" id="avgLatency">-- ms</p>
+            </div>
+            <div class="card card-critical" id="p90LatencyCard">
+                <h3 class="text-yellow-400 text-sm uppercase font-extrabold">P90 Latency (CRITICAL)</h3>
+                <p class="text-4xl font-bold text-yellow-400 mt-2" id="p90Latency">-- ms</p>
+            </div>
+            <div class="card" id="maxLatencyCard">
+                <h3 class="text-gray-400 text-sm uppercase font-semibold">Max Latency (Worst)</h3>
+                <p class="text-4xl font-bold text-red-400 mt-2" id="maxLatency">-- ms</p>
+            </div>
+            <div class="card">
+                <h3 class="text-gray-400 text-sm uppercase font-semibold">Slippage Events</h3>
+                <p class="text-4xl font-bold text-red-400 mt-2" id="slippageCount">--</p>
+            </div>
+        </div>
+
+        <!-- Benchmarking Panel -->
+        <div class="card mb-8">
+            <h3 class="text-white font-semibold mb-4 text-xl border-b border-gray-700 pb-2">Execution Broker
+                Benchmarking</h3>
+            <div id="benchmarkStats" class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                <p class="text-gray-400 col-span-3 py-4">Select a broker filter above to view segmented performance.</p>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card mb-8">
+            <h3 class="text-white font-semibold mb-4 text-xl border-b border-gray-700 pb-2">Execution Speed Trend
+                (Filtered)</h3>
+            <div class="h-64 w-full">
+                <canvas id="latencyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card overflow-hidden">
+            <h3 class="text-white font-semibold mb-4 text-xl border-b border-gray-700 pb-2">Real-time Trade Verification
+                Log (Filtered)</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-gray-300 bg-gray-700/30">
+                        <tr>
+                            <th class="py-3 pl-4">Time</th>
+                            <th class="py-3">Symbol</th>
+                            <th class="py-3">Side</th>
+                            <th class="py-3">Broker</th>
+                            <th class="py-3">Latency (ms)</th>
+                            <th class="py-3">Slippage ($)</th>
+                            <th class="py-3 pr-4">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="7" class="py-4 text-center text-gray-500">Initializing dashboard...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        let allLogs = [];
+        const apiUrl = 'http://127.0.0.1:8000/v1/logs';
+        const refreshInterval = 5000;
+        const keyInput = document.getElementById('proKeyInput');
+
+        // Filter elements
+        const timeRangeFilter = document.getElementById('timeRangeFilter');
+        const brokerFilter = document.getElementById('brokerFilter');
+        const alertThresholdInput = document.getElementById('alertThreshold');
+
+        // Broker Management Elements
+        const addBrokerBtn = document.getElementById('addBrokerBtn');
+        const newBrokerNameInput = document.getElementById('newBrokerName');
+        const newBrokerP90Input = document.getElementById('newBrokerP90');
+        const customBrokerListElement = document.getElementById('customBrokerList');
+
+
+        // Fixed Brokers
+        const FIXED_BROKERS = {
+            "IBKR": 50, // Fast
+            "Alpaca": 100,
+            "Databento": 40, // Fastest
+            "Zerodha": 150, // Indian market
+            "AngelOne": 160, // Indian market
+            "Groww": 180, // Indian market
+            "TDAmeritrade": 90,
+        };
+
+        let customBrokers = {}; // { "BrokerName": 90 } -> User-defined
+
+        // --- Persistence Logic (LocalStorage) ---
+
+        function saveCustomBrokers() {
+            localStorage.setItem('customBrokers', JSON.stringify(customBrokers));
+            renderCustomBrokerList();
+        }
+
+        function loadCustomBrokers() {
+            const stored = localStorage.getItem('customBrokers');
+            if (stored) {
+                try {
+                    customBrokers = JSON.parse(stored);
+                } catch (e) {
+                    console.error("Failed to parse custom brokers from storage:", e);
+                    customBrokers = {};
+                }
+            }
+            renderCustomBrokerList();
+        }
+
+        function renderCustomBrokerList() {
+            const names = Object.keys(customBrokers).map(name =>
+                `<span class="bg-blue-900/50 px-2 py-0.5 rounded text-blue-300">${name} (${customBrokers[name]}ms)</span>`
+            );
+            customBrokerListElement.innerHTML = names.length > 0 ? names.join(', ') : 'None.';
+        }
+
+        // --- Broker Management Event Listener ---
+
+        addBrokerBtn.addEventListener('click', () => {
+            const name = newBrokerNameInput.value.trim();
+            const p90 = parseInt(newBrokerP90Input.value);
+
+            if (!name) {
+                alert("Please enter a Broker Name.");
+                return;
+            }
+            if (isNaN(p90) || p90 < 10) {
+                alert("Please enter a valid Expected P90 Latency (min 10ms).");
+                return;
+            }
+
+            customBrokers[name] = p90;
+            saveCustomBrokers();
+            newBrokerNameInput.value = ''; // Clear input
+
+            // Re-fetch/re-process data to incorporate the new broker immediately
+            fetchData();
+        });
+
+
+        // Initialize key from local storage or use a default test key
+        let PRO_KEY = localStorage.getItem('proKey') || "sk_test_123";
+        keyInput.value = PRO_KEY;
+
+        // Setup Event Listeners for filters and key changes
+        keyInput.addEventListener('input', (e) => {
+            PRO_KEY = e.target.value;
+            localStorage.setItem('proKey', PRO_KEY);
+            fetchData();
+        });
+
+        timeRangeFilter.addEventListener('change', () => processData(allLogs));
+        brokerFilter.addEventListener('change', () => processData(allLogs));
+        alertThresholdInput.addEventListener('change', () => processData(allLogs));
+
+        // --- Core Data Fetching (Simulation with Custom Brokers) ---
+        async function fetchData() {
+            loadCustomBrokers(); // Ensure custom brokers are loaded before generating data
+
+            const statusElement = document.getElementById('lastUpdated');
+            statusElement.innerText = "Refreshing...";
+            statusElement.classList.add('animate-pulse');
+
+            if (!PRO_KEY.trim()) {
+                statusElement.innerText = "Enter a Pro Key to view data";
+                statusElement.classList.remove('animate-pulse');
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="7" class="py-4 text-center text-yellow-500">🔑 Please enter a valid X-Pro-Key above to authenticate.</td></tr>`;
+                allLogs = [];
+                processData(allLogs);
+                return;
+            }
+
+            try {
+                // Get the union of fixed and custom brokers for simulation
+                const allBrokerProfiles = { ...FIXED_BROKERS, ...customBrokers };
+
+                // --- SIMULATION LOGIC ---
+                // Generate data using the combined list of brokers
+                const simulatedData = generateSimulatedLogs(100, allBrokerProfiles);
+                allLogs = simulatedData;
+
+                // End Simulation
+
+                populateBrokerFilter(allBrokerProfiles);
+                processData(allLogs);
+
+                statusElement.innerText = "Last update: " + new Date().toLocaleTimeString();
+                statusElement.classList.remove('animate-pulse');
+
+            } catch (err) {
+                console.error("API Error:", err);
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="7" class="py-4 text-center text-red-500">
+                    ❌ Error: ${err.message}. Showing simulated data instead.
+                </td></tr>`;
+                statusElement.innerText = "Connection Failed (Simulating Data)";
+                statusElement.classList.remove('animate-pulse');
+            }
+        }
+
+        // Function to generate simulated data using a map of broker profiles
+        function generateSimulatedLogs(count, brokerProfiles) {
+            const logs = [];
+            const symbols = ["AAPL", "MSFT", "GOOGL", "RELIANCE", "HDFCBANK", "INFY"];
+            const brokerNames = Object.keys(brokerProfiles);
+
+            for (let i = 0; i < count; i++) {
+                const broker = brokerNames[Math.floor(Math.random() * brokerNames.length)];
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                const side = Math.random() < 0.5 ? 'buy' : 'sell';
+                const now = Date.now();
+
+                const expectedP90 = brokerProfiles[broker]; // Expected P90 from profile
+
+                // Generate latency centered around the expected P90, with some noise
+                let baseLatency = expectedP90 * (Math.random() * 0.5 + 0.75); // 75% to 125% of P90
+                let latency = Math.round(baseLatency + Math.random() * 20); // Add minor noise
+
+                // Slippage tends to correlate with latency
+                let slippageRange = latency / 10000;
+
+                let status = 'verified';
+                // If the latency is significantly worse than the expected P90, mark as anomaly
+                if (latency > expectedP90 * 1.5) {
+                    status = 'anomaly';
+                }
+
+                logs.push({
+                    id: crypto.randomUUID(),
+                    timestamp: now - (i * 1000 * (Math.random() * 2 + 1)),
+                    symbol: symbol,
+                    side: side,
+                    broker: broker,
+                    latency_ms: latency,
+                    slippage: slippageRange,
+                    status: status,
+                });
+            }
+            return logs.sort((a, b) => b.timestamp - a.timestamp);
+        }
+
+        // --- Data Filtering and Processing ---
+
+        function populateBrokerFilter(brokerProfiles) {
+            const brokerNames = Object.keys(brokerProfiles).sort();
+            const currentBroker = brokerFilter.value;
+
+            brokerFilter.innerHTML = '<option value="all">All Brokers</option>';
+            brokerNames.forEach(broker => {
+                const option = document.createElement('option');
+                option.value = broker;
+                option.textContent = broker;
+                brokerFilter.appendChild(option);
+            });
+            brokerFilter.value = currentBroker;
+        }
+
+        function filterData(data) {
+            let filteredData = [...data];
+            const timeRange = timeRangeFilter.value;
+            const broker = brokerFilter.value;
+
+            if (timeRange !== 'all') {
+                const count = parseInt(timeRange);
+                filteredData = filteredData.slice(0, count);
+            }
+
+            if (broker !== 'all') {
+                filteredData = filteredData.filter(d => d.broker === broker);
+            }
+
+            return filteredData;
+        }
+
+        function processData(data) {
+            const filteredData = filterData(data);
+
+            renderStats(filteredData);
+            renderTable(filteredData);
+            renderChart(filteredData);
+            checkAlertStatus(filteredData);
+            renderBenchmarking(data);
+        }
+
+        // --- Statistic Calculations ---
+
+        function calculatePercentile(latencies, p) {
+            if (latencies.length === 0) return 0;
+            const sorted = [...latencies].sort((a, b) => a - b);
+            const index = p * (sorted.length - 1);
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+
+            if (lower === upper) {
+                return sorted[lower];
+            } else {
+                const weight = index - lower;
+                return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+            }
+        }
+
+        function renderStats(data) {
+            const latencies = data.map(d => d.latency_ms);
+            const avg = latencies.reduce((acc, curr) => acc + curr, 0) / (data.length || 1);
+            const p90 = calculatePercentile(latencies, 0.90);
+            const maxLatency = latencies.length > 0 ? Math.max(...latencies) : 0;
+            const highSlip = data.filter(d => d.slippage > 0.05).length;
+
+            document.getElementById('avgLatency').innerText = Math.round(avg) + " ms";
+            document.getElementById('p90Latency').innerText = Math.round(p90) + " ms";
+            document.getElementById('maxLatency').innerText = Math.round(maxLatency) + " ms";
+            document.getElementById('slippageCount').innerText = highSlip;
+            document.getElementById('totalTrades').innerText = allLogs.length;
+        }
+
+        // --- Alerting Logic ---
+
+        function checkAlertStatus(data) {
+            const alertThreshold = parseFloat(alertThresholdInput.value);
+            const maxLatency = data.length > 0 ? Math.max(...data.map(d => d.latency_ms)) : 0;
+            const alertStatusElement = document.getElementById('alertStatus');
+            const maxLatencyCard = document.getElementById('maxLatencyCard');
+
+            alertStatusElement.className = 'w-5 h-5 rounded-full bg-green-500 ring-2 ring-green-300 transition-colors duration-300';
+            maxLatencyCard.classList.remove('card-alert-active');
+            alertStatusElement.title = "Alert Status: Nominal (Max Latency)";
+
+            if (maxLatency > alertThreshold) {
+                alertStatusElement.className = 'w-5 h-5 rounded-full bg-red-500 ring-4 ring-red-300 animate-pulse transition-colors duration-300';
+                maxLatencyCard.classList.add('card-alert-active');
+                alertStatusElement.title = `MAX LATENCY ALERT: ${maxLatency}ms exceeded threshold of ${alertThreshold}ms!`;
+            }
+        }
+
+        // --- Benchmarking Logic (Broker Comparison) ---
+
+        function calculateBrokerStats(logs, brokerName) {
+            const brokerLogs = logs.filter(d => d.broker === brokerName);
+            const latencies = brokerLogs.map(d => d.latency_ms);
+            const N = brokerLogs.length;
+
+            if (N === 0) return { avg: 0, p90: 0, count: 0, expectedP90: 0 };
+
+            const avg = latencies.reduce((acc, curr) => acc + curr, 0) / N;
+            const p90 = calculatePercentile(latencies, 0.90);
+
+            // Determine the expected P90 for this specific broker
+            const allBrokerProfiles = { ...FIXED_BROKERS, ...customBrokers };
+            const expectedP90 = allBrokerProfiles[brokerName] || 0;
+
+            return { avg: Math.round(avg), p90: Math.round(p90), count: N, expectedP90: expectedP90 };
+        }
+
+        function renderBenchmarking(logs) {
+            const benchmarkDiv = document.getElementById('benchmarkStats');
+            const currentBroker = brokerFilter.value;
+
+            if (currentBroker === 'all') {
+                benchmarkDiv.innerHTML = '<p class="text-gray-400 col-span-3 py-4">Select a specific broker above to view detailed benchmarking analysis.</p>';
+                return;
+            }
+
+            const currentBrokerStats = calculateBrokerStats(logs, currentBroker);
+            const peerBrokerLogs = logs.filter(d => d.broker !== currentBroker);
+            const peerBrokerStats = calculateBrokerStats(peerBrokerLogs, 'Peers');
+
+            let p90Comparison = 'Data is inconclusive or insufficient.';
+            let p90Color = 'text-gray-500';
+            let insightText = 'No immediate action required.';
+            let performanceBadge = '';
+
+            if (currentBrokerStats.count > 0) {
+                // 1. Peer Comparison
+                if (peerBrokerStats.p90 > 0 && currentBrokerStats.p90 > 0) {
+                    if (currentBrokerStats.p90 > peerBrokerStats.p90 * 1.2) { // 20% slower than peers
+                        const diff = currentBrokerStats.p90 - peerBrokerStats.p90;
+                        p90Comparison = `⚠️ ${diff}ms Slower than Peers (P90)`;
+                        p90Color = 'text-red-400';
+                        insightText = 'This broker is significantly underperforming the peer group. Investigate connection issues or re-route volume.';
+                    } else if (currentBrokerStats.p90 < peerBrokerStats.p90 * 0.8) { // 20% faster than peers
+                        const diff = peerBrokerStats.p90 - currentBrokerStats.p90;
+                        p90Comparison = `⚡ ${diff}ms Faster than Peers (P90)`;
+                        p90Color = 'text-green-400';
+                        insightText = 'Execution is superior on this broker. Maximize order flow here for best price fills.';
+                    } else {
+                        p90Comparison = `~ Comparable to Peers (P90)`;
+                        p90Color = 'text-yellow-400';
+                        insightText = 'Performance is stable and in line with other venues.';
+                    }
+                }
+
+                // 2. Expected Performance Comparison
+                if (currentBrokerStats.expectedP90 > 0) {
+                    const expectedVsActual = currentBrokerStats.p90 - currentBrokerStats.expectedP90;
+                    if (expectedVsActual > 20) {
+                        performanceBadge = `<p class="text-xs font-bold text-red-300 bg-red-800/50 rounded-full px-2 mt-1 inline-block">❗ ${expectedVsActual}ms WORSE than Expected (${currentBrokerStats.expectedP90}ms)</p>`;
+                    } else if (expectedVsActual < -10) {
+                        performanceBadge = `<p class="text-xs font-bold text-green-300 bg-green-800/50 rounded-full px-2 mt-1 inline-block">✅ ${Math.abs(expectedVsActual)}ms BETTER than Expected (${currentBrokerStats.expectedP90}ms)</p>`;
+                    }
+                }
+            }
+
+
+            benchmarkDiv.innerHTML = `
+                <div class="card bg-gray-900/50 border border-blue-600/50">
+                    <h4 class="text-lg font-bold text-blue-400">${currentBroker} Actuals</h4>
+                    <p class="text-3xl font-extrabold text-white mt-2">${currentBrokerStats.p90} ms</p>
+                    <p class="text-gray-500 text-sm">P90 Latency</p>
+                    ${performanceBadge}
+                    <p class="text-gray-500 text-xs mt-1">${currentBrokerStats.count} Trades Monitored</p>
+                </div>
+                <div class="card bg-gray-900/50 border border-gray-600/50">
+                    <h4 class="text-lg font-bold text-gray-400">Peer Group Stats</h4>
+                    <p class="text-3xl font-extrabold text-white mt-2">${peerBrokerStats.p90} ms</p>
+                    <p class="text-gray-500 text-sm">P90 Latency (Aggregated)</p>
+                    <p class="text-gray-500 text-xs mt-3">${peerBrokerLogs.length} Trades Monitored (Excl. ${currentBroker})</p>
+                </div>
+                <div class="card bg-gray-900/50 border border-yellow-600/50">
+                    <h4 class="text-lg font-bold text-yellow-400">Actionable Insight</h4>
+                    <p class="text-lg font-bold ${p90Color} mt-2">${p90Comparison}</p>
+                    <p class="text-sm mt-1 text-left text-gray-300">${insightText}</p>
+                </div>
+            `;
+        }
+
+        // --- Table Rendering ---
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-gray-500">No trade logs found matching current filters.</td></tr>`;
+                return;
+            }
+
+            data.forEach(row => {
+                const date = new Date(row.timestamp).toLocaleTimeString();
+                const statusClass = row.status === 'verified' ? 'status-verified' : 'status-anomaly';
+
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-gray-800 transition";
+                tr.innerHTML = `
+                    <td class="py-3 pl-4 text-gray-400">${date}</td>
+                    <td class="py-3 font-bold text-white">${row.symbol}</td>
+                    <td class="py-3 ${row.side === 'buy' ? 'text-green-400 font-medium' : 'text-red-400 font-medium'} uppercase">${row.side}</td>
+                    <td class="py-3 text-gray-300">${row.broker}</td>
+                    <td class="py-3 text-white">${row.latency_ms} ms</td>
+                    <td class="py-3 text-white">${row.slippage.toFixed(4)} $</td>
+                    <td class="py-3 pr-4"><span class="status-badge ${statusClass}">${row.status}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- Chart Rendering ---
+
+        function renderChart(data) {
+            const ctx = document.getElementById('latencyChart').getContext('2d');
+            const chartData = [...data].reverse();
+
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(d => new Date(d.timestamp).toLocaleTimeString()),
+                    datasets: [{
+                        label: 'Execution Latency (ms)',
+                        data: chartData.map(d => d.latency_ms),
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#38bdf8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#334155' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            display: false
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Initial Load and Setup Interval
+        loadCustomBrokers(); // Load profiles before first fetch
+        fetchData();
+        setInterval(fetchData, refreshInterval);
+    </script>
+</body>
+
+</html>
