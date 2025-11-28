@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pnl-watchdog"
-version = "0.4.0"
+version = "0.5.0"
 authors = [{ name = "Soham Mirajkar", email = "b25bs1197@iitj.ac.in" }]
 description = "A safety tool for algo-traders to detect silent broker failures."
 readme = "README.md"
@@ -22,10 +22,11 @@ dependencies = [
     "logzero",
     "pyotp",
     "websocket-client",
-    "numpy",                  # <-- Added for AI Brain
-    "scikit-learn",           # <-- Added for Isolation Forest
-    "python-dateutil",        # <-- Added for Timestamp Parsing
-    "aiohttp",                # <-- Added for Async/Non-blocking mode
+    "numpy",                  # Critical for Whale View Math
+    "scikit-learn",           # Useful for future ML features
+    "python-dateutil",
+    "aiohttp",
+    "alpaca-py",              # Needed for the Audit/Bridge tools
 ]
 
 [project.urls]

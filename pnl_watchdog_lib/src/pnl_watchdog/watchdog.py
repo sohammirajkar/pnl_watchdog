@@ -7,6 +7,7 @@ import requests
 import logging
 import json
 from datetime import datetime
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="[PnL Watchdog] %(message)s")
@@ -93,3 +94,69 @@ class PnLWatchdog:
         except Exception as e:
             logger.error(f"Failed to reach Oracle: {e}")
             return None
+
+    def get_whale_view(self, symbol, lookback_candles=100):
+        """
+        Returns 'Amihud' (Liquidity Cost) and 'Kyle's Lambda' (Insider Accumulation).
+        Requires 'numpy' to be installed.
+        """
+        # 1. Initialize candles to an empty list to prevent "UnboundLocalError"
+        candles = []
+
+        # 2. Try to fetch data
+        if hasattr(self, 'broker') and hasattr(self.broker, 'get_candles'):
+            candles = self.broker.get_candles(symbol, lookback_candles)
+
+        # 3. Validation: If no data, return error immediately
+        if not candles:
+            # Fallback if broker didn't return data or isn't connected
+            return {"error": "No candle data available", "amihud_illiquidity": 0, "kyles_lambda": 0, "verdict": "No Data"}
+
+        # 4. Prepare Lists
+        returns_abs = []
+        dollar_vols = []
+        price_changes = []
+        signed_vols = []
+
+        for c in candles:
+            # Safety check for malformed candle data
+            if not isinstance(c, dict) or 'volume' not in c:
+                continue
+
+            if c['volume'] == 0:
+                continue
+
+            # Amihud Data
+            ret = (c['close'] - c['open']) / c['open']
+            dollar_vol = c['close'] * c['volume']
+            returns_abs.append(abs(ret))
+            dollar_vols.append(dollar_vol)
+
+            # Kyle's Lambda Data
+            sign = 1 if c['close'] >= c['open'] else -1
+            price_changes.append(c['close'] - c['open'])
+            signed_vols.append(c['volume'] * sign)
+
+        # --- CALCULATION PHASE ---
+        import numpy as np
+
+        # Metric 1: Amihud
+        if len(dollar_vols) > 0:
+            amihud_raw = [r / v for r, v in zip(returns_abs, dollar_vols)]
+            amihud_score = (sum(amihud_raw) / len(amihud_raw)) * 1_000_000
+        else:
+            amihud_score = 0
+
+        # Metric 2: Kyle's Lambda
+        if len(signed_vols) > 1:
+            slope, intercept = np.polyfit(signed_vols, price_changes, 1)
+            kyles_lambda = slope * 1_000_000
+        else:
+            kyles_lambda = 0.0
+
+        return {
+            "symbol": symbol,
+            "amihud_illiquidity": round(amihud_score, 4),
+            "kyles_lambda": round(kyles_lambda, 6),
+            "verdict": "TOXIC ORDER BOOK" if kyles_lambda > 1.0 else "Healthy"
+        }
