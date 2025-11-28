@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: pnl-watchdog
-Version: 0.2.1
+Version: 0.4.0
 Summary: A safety tool for algo-traders to detect silent broker failures.
 Author-email: Soham Mirajkar <b25bs1197@iitj.ac.in>
 Project-URL: Homepage, https://github.com/yourusername/pnl-watchdog
-Project-URL: Cloud Version, https://pnlwatchdog.com
+Project-URL: Cloud, https://pnlwatchdog.com
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -17,6 +17,10 @@ Requires-Dist: smartapi-python>=1.3.4
 Requires-Dist: logzero
 Requires-Dist: pyotp
 Requires-Dist: websocket-client
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: python-dateutil
+Requires-Dist: aiohttp
 
 # 🐶 PnL Watchdog
 

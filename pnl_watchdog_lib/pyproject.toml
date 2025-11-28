@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pnl-watchdog"
-version = "0.2.1"
+version = "0.4.0"
 authors = [{ name = "Soham Mirajkar", email = "b25bs1197@iitj.ac.in" }]
 description = "A safety tool for algo-traders to detect silent broker failures."
 readme = "README.md"
@@ -22,8 +22,12 @@ dependencies = [
     "logzero",
     "pyotp",
     "websocket-client",
+    "numpy",                  # <-- Added for AI Brain
+    "scikit-learn",           # <-- Added for Isolation Forest
+    "python-dateutil",        # <-- Added for Timestamp Parsing
+    "aiohttp",                # <-- Added for Async/Non-blocking mode
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/pnl-watchdog"
-"Cloud Version" = "https://pnlwatchdog.com"                 # <-- THE UPSELL LINK
+Homepage = "https://github.com/yourusername/pnl-watchdog"
+Cloud = "https://pnlwatchdog.com"

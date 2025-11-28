@@ -4,3 +4,7 @@ smartapi-python>=1.3.4
 logzero
 pyotp
 websocket-client
+numpy
+scikit-learn
+python-dateutil
+aiohttp

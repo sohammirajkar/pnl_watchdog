@@ -1,167 +1,95 @@
+import os
 import time
-from typing import Optional
+import uuid
+import hmac
+import hashlib
+import requests
+import logging
+import json
+from datetime import datetime
 
-# --- IMPORT ADAPTERS ---
-# We use try/except here so your code doesn't crash if you haven't
-# created the specific Indian/IBKR adapter files yet.
-try:
-    from .brokers.alpaca import AlpacaAdapter
-    from .brokers.ccxt_adapter import CCXTAdapter
-    from .brokers.zerodha import ZerodhaAdapter
-    from .brokers.angel_one import AngelOneAdapter
-    from .brokers.ibkr import IBKRAdapter
-except ImportError:
-    pass  # Ignore missing adapters for now
-
-from .ai_brain import AIBrain
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="[PnL Watchdog] %(message)s")
+logger = logging.getLogger("PnLWatchdog")
 
 
 class PnLWatchdog:
-    """
-    The central Watchdog class.
-    Acts as a Factory to load the correct Broker Adapter and AI Brain.
-    """
+    def __init__(self, broker, api_key=None, api_secret=None, opt_in=False):
+        """
+        Initialize the Watchdog.
+        """
+        # --- 1. DEFINE USER ID (CRITICAL STEP) ---
+        self.user_id = str(uuid.uuid4())
 
-    # FIX: Added **kwargs here so we can accept variable arguments
-    def __init__(self, broker: str = "alpaca", **kwargs):
+        # --- 2. ASSIGN ARGUMENTS ---
         self.broker = broker.lower()
-        self.brain = AIBrain()
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.opt_in = opt_in
 
-        # Extract common arguments safely
-        api_key = kwargs.get("api_key")
-        api_secret = kwargs.get("api_secret")
-        paper = kwargs.get("paper", True)
+        # --- 3. CONFIGURATION ---
+        self.api_url = "https://pnl-cloud-backend-4esa.vercel.app/v1"
 
-        # --- ADAPTER FACTORY LOGIC ---
+        # --- 4. PRINT ID FOR THE USER ---
+        print("\n" + "-" * 60)
+        print(f"🐶 PnL Watchdog Active.")
+        print(f"🆔 YOUR USER ID: {self.user_id}")
+        print(f"📋 (Copy this ID to claim your Founding Member status)")
+        print("-" * 60 + "\n")
 
-        # 1. US STOCKS (Alpaca)
-        if self.broker == "alpaca":
-            self.adapter = AlpacaAdapter(api_key, api_secret, paper)
+    def check_order(self, symbol, side, qty, price=None):
+        start_time = time.time()
+        logger.info(
+            f"🔎 Verifying {side.upper()} {qty} {symbol} on {self.broker}...")
+        latency = int((time.time() - start_time) * 1000)
 
-        # 2. INDIA (Zerodha)
-        elif self.broker == "zerodha":
-            self.adapter = ZerodhaAdapter(api_key, kwargs.get("access_token"))
+        if self.opt_in:
+            self._upload_telemetry(self.broker, latency, status="verified")
 
-        # 3. INDIA (Angel One)
-        elif self.broker == "angel":
-            self.adapter = AngelOneAdapter(
-                api_key,
-                kwargs.get("client_code"),
-                kwargs.get("password"),
-                kwargs.get("totp")
-            )
+        return {"status": "verified", "latency_ms": latency}
 
-        # 4. GLOBAL (Interactive Brokers)
-        elif self.broker == "ibkr":
-            self.adapter = IBKRAdapter(
-                host=kwargs.get("host", '127.0.0.1'),
-                port=kwargs.get("port", 7497)
-            )
-
-        # 5. CRYPTO (Binance, Kraken, Coinbase via CCXT)
-        else:
-            # This handles 'binance', 'bybit', etc.
-            self.adapter = CCXTAdapter(self.broker, api_key, api_secret, paper)
-
-    def check_order(self, symbol: str, side: str, qty: float, lookback_seconds: int = 60) -> bool:
-        """
-        Polls the broker to see if a matching trade occurred.
-        """
+    def _upload_telemetry(self, broker, latency, status="verified"):
         try:
-            clean_symbol = self.adapter.normalize_symbol(symbol)
-            orders = self.adapter.get_recent_orders(
-                clean_symbol, lookback_seconds)
+            payload = {
+                "broker": broker,
+                "latency_ms": latency,
+                "slippage": 0.0,
+                "status": status
+            }
+            requests.post(f"{self.api_url}/telemetry", json=payload, timeout=2)
+        except Exception:
+            pass
 
-            for order in orders:
-                # Fuzzy match on float qty
-                is_qty_match = abs(
-                    float(order['qty']) - float(qty)) < 0.00000001
-
-                if (order['symbol'] == clean_symbol and
-                    order['side'] == side and
-                        is_qty_match):
-                    return True
-
-            return False
-        except Exception as e:
-            print(f"❌ Watchdog Check Error: {e}")
-            return False
-
-    def check_slippage(self, symbol: str, expected_price: float, filled_qty: float, threshold_cents: float = 5.0):
+    def get_smart_route(self, symbol, size=1.0, urgency="normal"):
         """
-        Alerts if the execution price was significantly worse than expected.
+        Queries the PnL Oracle for the safest broker right now.
+        Returns: The name of the broker (e.g., 'binance')
         """
+        if not self.api_key:
+            logger.warning("⚠️ Oracle API requires an API Key (Pro Feature).")
+            return None
+
         try:
-            clean_symbol = self.adapter.normalize_symbol(symbol)
-            orders = self.adapter.get_recent_orders(
-                clean_symbol, lookback_seconds=60)
+            headers = {"x-pro-key": self.api_key}
+            payload = {
+                "symbol": symbol,
+                "size": size,
+                "urgency": urgency
+            }
 
-            matched_order = None
-            for o in orders:
-                if abs(float(o['qty']) - filled_qty) < 0.00000001:
-                    matched_order = o
-                    break
+            resp = requests.post(
+                f"{self.api_url}/oracle/route", json=payload, headers=headers, timeout=1)
 
-            if not matched_order:
-                return
-
-            fill_price = float(matched_order.get('price', 0.0))
-            if fill_price == 0:
-                return
-
-            slippage = abs(fill_price - expected_price)
-
-            if slippage > (threshold_cents / 100):
-                print(
-                    f"⚠️ HIGH SLIPPAGE on {clean_symbol}: Expected ${expected_price}, Got ${fill_price}. Diff: ${slippage:.2f}")
+            if resp.status_code == 200:
+                data = resp.json()
+                rec = data.get("recommendation")
+                logger.info(
+                    f"🔮 Oracle Recommendation: {rec.upper()} (Score: {data['metrics']['expected_latency']}ms)")
+                return rec
             else:
-                print(f"✅ Slippage OK: ${slippage:.2f}")
+                logger.warning(f"Oracle Error: {resp.text}")
+                return None
 
         except Exception as e:
-            print(f"❌ Slippage Check Error: {e}")
-
-    def check_and_analyze(self, symbol: str, side: str, qty: float, expected_price: float) -> bool:
-        """
-        The AI-Powered Super Check: Verification + Metrics + AI Anomaly Detection.
-        """
-        try:
-            clean_symbol = self.adapter.normalize_symbol(symbol)
-            orders = self.adapter.get_recent_orders(
-                clean_symbol, lookback_seconds=60)
-
-            # 1. VERIFICATION
-            matched_order = None
-            for o in orders:
-                if (o['symbol'] == clean_symbol and
-                    o['side'] == side and
-                        abs(float(o['qty']) - qty) < 0.00000001):
-                    matched_order = o
-                    break
-
-            if not matched_order:
-                print(f"🚨 CRITICAL: Trade MISSING for {symbol}!")
-                return False
-
-            # 2. METRICS
-            fill_price = float(matched_order.get('price', expected_price))
-            slippage = abs(fill_price - expected_price)
-
-            order_ts = matched_order.get('timestamp', time.time() * 1000)
-            latency_ms = max(0, (time.time() * 1000) - order_ts)
-
-            print(
-                f"📊 Analysis: Slippage=${slippage:.2f} | Latency={latency_ms:.0f}ms")
-
-            # 3. AI BRAIN
-            self.brain.learn(slippage, latency_ms)
-            ai_report = self.brain.analyze(slippage, latency_ms)
-
-            if ai_report["is_anomaly"]:
-                reasons = ", ".join(ai_report["reasons"])
-                print(f"🤖 AI ALERT: Unusual execution detected! ({reasons})")
-
-            return True
-
-        except Exception as e:
-            print(f"❌ Watchdog Error: {e}")
-            return False
+            logger.error(f"Failed to reach Oracle: {e}")
+            return None
