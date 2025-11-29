@@ -1,0 +1,12 @@
+[package]
+name = "pnl_core"
+version = "0.6.0"
+edition = "2021"
+
+[lib]
+name = "pnl_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+# We explicitly use 0.21+ to match the new syntax
+pyo3 = { version = "0.21.2", features = ["extension-module"] }

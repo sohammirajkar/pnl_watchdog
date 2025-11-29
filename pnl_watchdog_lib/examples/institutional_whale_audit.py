@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 
-ALPACA_KEY = "PKQHZMESZIUWFLJYSZ6JSE3Q2Y"
-ALPACA_SECRET = "6NFCA5xH1GzuFFGetEwGBTJbjfdGEN19mnZ27xMuUXqU"
-DATABENTO_KEY = "db-vpXFYPPUBepXcA3YBftXQdGUjNyrL"
+ALPACA_KEY = "PKNQQXPCBWPG6YGEG3OQ25SVLV"
+ALPACA_SECRET = "8KTP6wQnD7nHp66jEw3QCzNqvjJPAniwwAJerxsFSYXk"
+DATABENTO_KEY = "db-4YkcnL9CbMJwsD8Uh7vvSfgUYuHqr"
 
 
 # SYMBOL TO TEST
@@ -98,7 +98,7 @@ dog = PnLWatchdog(broker="audit_mode")
 
 # 1. TEST ALPACA
 print("\n[1] Analyzing RETAIL Feed (Alpaca/SIP)...")
-dog.broker = AlpacaFeed(ALPACA_KEY, ALPACA_SECRET)
+dog.adapter = AlpacaFeed(ALPACA_KEY, ALPACA_SECRET)
 res_retail = dog.get_whale_view(SYMBOL, lookback_candles=100)
 
 print(f"   -> Amihud (Cost): {res_retail.get('amihud_illiquidity', 0)}")
@@ -107,7 +107,7 @@ print(f"   -> Verdict: {res_retail.get('verdict')}")
 
 # 2. TEST DATABENTO
 print("\n[2] Analyzing INSTITUTIONAL Feed (Databento/TotalView)...")
-dog.broker = DatabentoFeed(DATABENTO_KEY)
+dog.adapter = DatabentoFeed(DATABENTO_KEY)
 res_inst = dog.get_whale_view(SYMBOL, lookback_candles=100)
 
 if res_inst.get('error'):

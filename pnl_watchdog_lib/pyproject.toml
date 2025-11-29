@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "pnl-watchdog"
-version = "0.5.0"
+version = "0.6.0"
 authors = [{ name = "Soham Mirajkar", email = "b25bs1197@iitj.ac.in" }]
 description = "A safety tool for algo-traders to detect silent broker failures."
 readme = "README.md"

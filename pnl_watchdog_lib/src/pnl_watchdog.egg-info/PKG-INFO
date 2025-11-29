@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pnl-watchdog
-Version: 0.5.0
+Version: 0.5.1
 Summary: A safety tool for algo-traders to detect silent broker failures.
 Author-email: Soham Mirajkar <b25bs1197@iitj.ac.in>
 Project-URL: Homepage, https://github.com/yourusername/pnl-watchdog
