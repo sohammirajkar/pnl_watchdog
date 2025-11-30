@@ -6,11 +6,17 @@ import hmac
 import hashlib
 import requests
 import logging
-import json
 import threading
+import json
 from datetime import datetime
 import numpy as np
 from typing import Optional, Dict, Any
+
+# Import Rust module
+try:
+    from . import pnl_watchdog as pnl_core
+except ImportError:
+    pnl_core = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="[PnL Watchdog] %(message)s")
@@ -21,12 +27,33 @@ logger = logging.getLogger("PnLWatchdog")
 # created the specific Indian/IBKR adapter files yet.
 try:
     from .brokers.alpaca import AlpacaAdapter
+except ImportError:
+    AlpacaAdapter = None
+
+try:
     from .brokers.ccxt_adapter import CCXTAdapter
+except ImportError:
+    CCXTAdapter = None
+
+try:
     from .brokers.zerodha import ZerodhaAdapter
+except ImportError:
+    ZerodhaAdapter = None
+
+try:
     from .brokers.angel_one import AngelOneAdapter
+except ImportError:
+    AngelOneAdapter = None
+
+try:
     from .brokers.ibkr import IBKRAdapter
 except ImportError:
-    pass  # Ignore missing adapters for now
+    IBKRAdapter = None
+
+try:
+    from .brokers.databento import DatabentoAdapter
+except ImportError:
+    DatabentoAdapter = None
 
 
 class PnLWatchdog:
@@ -78,6 +105,8 @@ class PnLWatchdog:
                     host=kwargs.get("host", '127.0.0.1'),
                     port=kwargs.get("port", 7497)
                 )
+            elif self.broker_name == "databento":
+                self.adapter = DatabentoAdapter(api_key)
             else:
                 # Default to CCXT for crypto (Binance, etc.)
                 self.adapter = CCXTAdapter(
@@ -206,6 +235,49 @@ class PnLWatchdog:
             "amihud_illiquidity": round(amihud_score, 4),
             "kyles_lambda": round(kyles_lambda, 6),
             "verdict": "TOXIC ORDER BOOK" if kyles_lambda > 1.0 else "Healthy"
+        }
+
+    def get_order_flow_analytics(self, symbol, lookback=50):
+        """
+        [NEW] Returns Institutional Order Flow Metrics.
+        - Toxicity: Probability of informed trading (0-100).
+        - VWAP Deviation: Trend strength (Basis Points).
+        - Imbalance: Order Book Pressure (-1 to 1).
+        """
+        if not pnl_core:
+            return {"error": "Rust Core Missing"}
+
+        # 1. Fetch Data (Using Adapter)
+        if not self.adapter or not hasattr(self.adapter, 'get_candles'):
+            return {"error": "No Broker Connected"}
+
+        data = self.adapter.get_candles(symbol, lookback)
+        if not data:
+            return {"error": "No Data"}
+
+        # 2. Prepare Rust Vectors
+        prices = [c['close'] for c in data]
+        volumes = [float(c['volume']) for c in data]
+
+        # NOTE: Real Toxicity requires Level 2 Data (Bids/Asks).
+        # Retail feeds don't give history of Bids/Asks.
+        # We simulate it here for the Free Tier based on High/Low proxies.
+        # In Pro Tier (Databento), you would pass real arrays.
+        sim_bids = [c['close'] * 0.999 for c in data]
+        sim_asks = [c['close'] * 1.001 for c in data]
+
+        # 3. Call Rust Engine
+        vwap_dev, tox, nof, obi, vwap = pnl_core.calculate_order_flow_metrics(
+            prices, volumes, sim_bids, sim_asks
+        )
+
+        return {
+            "symbol": symbol,
+            "toxicity_score": round(tox, 2),
+            "vwap_deviation_bps": round(vwap_dev, 2),
+            "net_order_flow": round(nof, 2),
+            "order_book_imbalance": round(obi, 4),
+            "verdict": "HIGH TOXICITY" if tox > 50 else "SAFE"
         }
 
     def _sanitize_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:

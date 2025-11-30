@@ -2,18 +2,38 @@
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
+
 [project]
 name = "pnl-watchdog"
 version = "0.6.0"
 authors = [{ name = "Soham Mirajkar", email = "b25bs1197@iitj.ac.in" }]
-description = "A safety tool for algo-traders to detect silent broker failures."
+description = "Infrastructure Economics Advisor: Measure Kyle's Lambda fairness gaps using Rust-accelerated calculations. Optimize trading strategy within broker latency constraints."
 readme = "README.md"
 requires-python = ">=3.7"
+keywords = [
+    "trading",
+    "execution",
+    "fairness",
+    "kyle-lambda",
+    "market-microstructure",
+    "infrastructure-economics",
+    "rust",
+    "quantitative-finance",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Rust",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
 ]
 dependencies = [
     "requests>=2.25.0",
@@ -22,13 +42,23 @@ dependencies = [
     "logzero",
     "pyotp",
     "websocket-client",
-    "numpy",                  # Critical for Whale View Math
-    "scikit-learn",           # Useful for future ML features
+    "numpy",
+    "scikit-learn",
     "python-dateutil",
     "aiohttp",
-    "alpaca-py",              # Needed for the Audit/Bridge tools
+    "alpaca-py",
 ]
 
+
 [project.urls]
-Homepage = "https://github.com/yourusername/pnl-watchdog"
-Cloud = "https://pnlwatchdog.com"
+Homepage = "https://github.com/sohammirajkar/pnl_watchdog"
+Repository = "https://github.com/sohammirajkar/pnl_watchdog"
+Documentation = "https://github.com/sohammirajkar/pnl_watchdog#readme"
+"Bug Tracker" = "https://github.com/sohammirajkar/pnl_watchdog/issues"
+"ArXiv Paper" = "https://arxiv.org/abs/coming-soon"
+Research = "https://github.com/sohammirajkar/pnl_watchdog/tree/main/research"
+
+
+[tool.maturin]
+python-source = "src"
+bindings = "pyo3"
