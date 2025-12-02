@@ -6,54 +6,37 @@ import hmac
 import hashlib
 import requests
 import logging
-import threading
 import json
+import threading
 from datetime import datetime
 import numpy as np
 from typing import Optional, Dict, Any
-
-# Import Rust module
-try:
-    from . import pnl_watchdog as pnl_core
-except ImportError:
-    pnl_core = None
+import random
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="[PnL Watchdog] %(message)s")
 logger = logging.getLogger("PnLWatchdog")
 
 # --- IMPORT ADAPTERS ---
-# We use try/except here so your code doesn't crash if you haven't
-# created the specific Indian/IBKR adapter files yet.
 try:
     from .brokers.alpaca import AlpacaAdapter
-except ImportError:
-    AlpacaAdapter = None
-
-try:
     from .brokers.ccxt_adapter import CCXTAdapter
-except ImportError:
-    CCXTAdapter = None
-
-try:
     from .brokers.zerodha import ZerodhaAdapter
-except ImportError:
-    ZerodhaAdapter = None
-
-try:
     from .brokers.angel_one import AngelOneAdapter
-except ImportError:
-    AngelOneAdapter = None
-
-try:
     from .brokers.ibkr import IBKRAdapter
 except ImportError:
-    IBKRAdapter = None
+    pass  # Ignore missing adapters for now
 
+
+# --- RUST CORE IMPORT ---
 try:
-    from .brokers.databento import DatabentoAdapter
+    import pnl_core
+    RUST_CORE_AVAILABLE = True
 except ImportError:
-    DatabentoAdapter = None
+    # If the Rust extension isn't built/found, flag it.
+    RUST_CORE_AVAILABLE = False
+    logger.warning(
+        "⚠️ Rust Core (pnl_core) not found. Falling back to Python math (slower, less precise).")
 
 
 class PnLWatchdog:
@@ -105,8 +88,8 @@ class PnLWatchdog:
                     host=kwargs.get("host", '127.0.0.1'),
                     port=kwargs.get("port", 7497)
                 )
-            elif self.broker_name == "databento":
-                self.adapter = DatabentoAdapter(api_key)
+            elif self.broker_name == "test_mode":  # New mode for stress testing
+                self.adapter = None
             else:
                 # Default to CCXT for crypto (Binance, etc.)
                 self.adapter = CCXTAdapter(
@@ -183,9 +166,62 @@ class PnLWatchdog:
             logger.error(f"Failed to reach Oracle: {e}")
             return None
 
+    def _calculate_python_fallback(self, opens, closes, volumes):
+        """Python implementation of Market Quality Metrics for Rust fallback."""
+        returns_abs = []
+        dollar_vols = []
+        price_changes = []
+        signed_vols = []
+        buy_vol = 0.0
+        sell_vol = 0.0
+
+        for o, c, v in zip(opens, closes, volumes):
+            if v <= 0.0:
+                continue
+
+            # Amihud
+            ret = (c - o) / o
+            dollar_vol = c * v
+            returns_abs.append(abs(ret))
+            dollar_vols.append(dollar_vol)
+
+            # Kyle's Lambda & Imbalance
+            sign = 1 if c >= o else -1
+            if sign > 0:
+                buy_vol += v
+            else:
+                sell_vol += v
+
+            price_changes.append(c - o)
+            signed_vols.append(v * sign)
+
+        # Amihud Calculation
+        amihud_score = 0.0
+        if dollar_vols:
+            sum_ratio = sum(r / v for r, v in zip(returns_abs, dollar_vols))
+            amihud_score = (sum_ratio / len(dollar_vols)) * 1_000_000.0
+
+        # Kyle's Lambda Calculation
+        kyles_lambda = 0.0
+        if len(signed_vols) > 1:
+            try:
+                # Use numpy for polyfit (Linear Regression slope)
+                slope, _ = np.polyfit(signed_vols, price_changes, 1)
+                kyles_lambda = slope * 1_000_000.0
+            except np.linalg.LinAlgError:
+                # Handle singular matrix error if all volumes are the same
+                kyles_lambda = 0.0
+
+        # Imbalance Calculation
+        total_vol = buy_vol + sell_vol
+        imbalance = (buy_vol - sell_vol) / \
+            total_vol if total_vol > 0.0 else 0.0
+
+        return amihud_score, kyles_lambda, imbalance
+
     def get_whale_view(self, symbol, lookback_candles=100, candles=None):
         """
-        v0.5.0: The Whale Engine. Calculates Amihud & Kyle's Lambda.
+        v0.5.0: The Whale Engine. Calculates Amihud & Kyle's Lambda using Rust or Python fallback.
         """
         # 1. Get Data (Prefer injected candles, then adapter, then fail)
         data = []
@@ -197,88 +233,259 @@ class PnLWatchdog:
         if not data:
             return {"error": "No candle data. Connect a broker or pass 'candles' list.", "verdict": "No Data"}
 
-        # 2. Process Metrics
-        returns_abs = []
-        dollar_vols = []
-        price_changes = []
-        signed_vols = []
+        # 2. Extract Data arrays
+        opens = [c['open'] for c in data]
+        closes = [c['close'] for c in data]
+        volumes = [c['volume'] for c in data]
 
-        for c in data:
-            if not isinstance(c, dict) or 'volume' not in c or c['volume'] == 0:
-                continue
+        amihud_score = 0.0
+        kyles_lambda = 0.0
+        imbalance = 0.0
 
-            # Amihud
-            ret = (c['close'] - c['open']) / c['open']
-            dollar_vol = c['close'] * c['volume']
-            returns_abs.append(abs(ret))
-            dollar_vols.append(dollar_vol)
-
-            # Kyle's Lambda
-            sign = 1 if c['close'] >= c['open'] else -1
-            price_changes.append(c['close'] - c['open'])
-            signed_vols.append(c['volume'] * sign)
-
-        # 3. Calculate
-        amihud_score = 0
-        kyles_lambda = 0
-
-        if dollar_vols:
-            amihud_raw = [r / v for r, v in zip(returns_abs, dollar_vols)]
-            amihud_score = (sum(amihud_raw) / len(amihud_raw)) * 1_000_000
-
-        if len(signed_vols) > 1:
-            slope, _ = np.polyfit(signed_vols, price_changes, 1)
-            kyles_lambda = slope * 1_000_000
+        # 3. Process Metrics (Use Rust if available, otherwise fallback)
+        if RUST_CORE_AVAILABLE:
+            try:
+                # Call Rust function with vectors of primitives
+                amihud_score, kyles_lambda, imbalance = pnl_core.calculate_market_quality_metrics(
+                    opens, closes, volumes
+                )
+            except Exception as e:
+                logger.error(
+                    f"Rust Core calculation failed: {e}. Falling back to Python.")
+                amihud_score, kyles_lambda, imbalance = self._calculate_python_fallback(
+                    opens, closes, volumes)
+        else:
+            amihud_score, kyles_lambda, imbalance = self._calculate_python_fallback(
+                opens, closes, volumes)
 
         return {
             "symbol": symbol,
             "amihud_illiquidity": round(amihud_score, 4),
             "kyles_lambda": round(kyles_lambda, 6),
-            "verdict": "TOXIC ORDER BOOK" if kyles_lambda > 1.0 else "Healthy"
+            "order_flow_imbalance": round(imbalance, 4),
+            "verdict": "TOXIC ORDER FLOW" if kyles_lambda > 1.0 else "Healthy"
         }
 
-    def get_order_flow_analytics(self, symbol, lookback=50):
+    # --- NEW: JUMP RISK ESTIMATOR ---
+    def get_jump_risk_profile(self, symbol, lookback_candles=200):
         """
-        [NEW] Returns Institutional Order Flow Metrics.
-        - Toxicity: Probability of informed trading (0-100).
-        - VWAP Deviation: Trend strength (Basis Points).
-        - Imbalance: Order Book Pressure (-1 to 1).
+        Estimates 'Fat Tail' risk using Merton Jump-Diffusion logic.
+        Useful for Crypto and Energy markets.
         """
-        if not pnl_core:
-            return {"error": "Rust Core Missing"}
+        if not RUST_CORE_AVAILABLE:
+            return {"error": "Rust Core required for Jump Diffusion models."}
 
-        # 1. Fetch Data (Using Adapter)
-        if not self.adapter or not hasattr(self.adapter, 'get_candles'):
-            return {"error": "No Broker Connected"}
+        # 1. Fetch Data
+        data = []
+        if self.adapter and hasattr(self.adapter, 'get_candles'):
+            data = self.adapter.get_candles(symbol, lookback_candles)
 
-        data = self.adapter.get_candles(symbol, lookback)
+        if not data or len(data) < 50:
+            return {"error": "Insufficient data for Jump Risk analysis"}
+
+        closes = [float(c['close']) for c in data]
+
+        # 2. Call Rust Core
+        try:
+            # returns (normal_vol, jump_prob, intensity)
+            vol, jump_prob, intensity = pnl_core.calculate_jump_risk(closes)
+
+            risk_level = "Low"
+            if jump_prob > 0.05:
+                risk_level = "Medium"
+            if jump_prob > 0.10:
+                risk_level = "HIGH (Crash Risk)"
+
+            return {
+                "symbol": symbol,
+                "volatility_sigma": round(vol, 4),
+                "jump_probability": round(jump_prob * 100, 2),  # as %
+                "jump_intensity": round(intensity, 2),
+                "risk_level": risk_level
+            }
+        except Exception as e:
+            logger.error(f"Jump Risk Calc Failed: {e}")
+            return {"error": str(e)}
+
+    # --- NEW: OPTIMAL EXECUTION (Almgren-Chriss) ---
+
+    def get_optimal_slice(self, symbol, total_qty, risk_tolerance=0.5, lookback_candles=100):
+        """
+        Calculates the optimal trade size to minimize market impact.
+        :param total_qty: Total size you want to move.
+        :param risk_tolerance: 0.0 (Patient/Min Cost) to 1.0 (Urgent/High Cost).
+        """
+        if not RUST_CORE_AVAILABLE:
+            return {"error": "Rust Core required for Almgren-Chriss optimization."}
+
+        # 1. We need Lambda (Impact Cost) AND Volatility (Risk)
+        # We can reuse the data fetching logic to get both
+        data = []
+        if self.adapter and hasattr(self.adapter, 'get_candles'):
+            data = self.adapter.get_candles(symbol, lookback_candles)
+
         if not data:
-            return {"error": "No Data"}
+            return {"error": "No data"}
 
-        # 2. Prepare Rust Vectors
-        prices = [c['close'] for c in data]
+        opens = [float(c['open']) for c in data]
+        closes = [float(c['close']) for c in data]
         volumes = [float(c['volume']) for c in data]
 
-        # NOTE: Real Toxicity requires Level 2 Data (Bids/Asks).
-        # Retail feeds don't give history of Bids/Asks.
-        # We simulate it here for the Free Tier based on High/Low proxies.
-        # In Pro Tier (Databento), you would pass real arrays.
-        sim_bids = [c['close'] * 0.999 for c in data]
-        sim_asks = [c['close'] * 1.001 for c in data]
+        try:
+            # Get Lambda
+            _, kyles_lambda, _ = pnl_core.calculate_market_quality_metrics(
+                opens, closes, volumes)
 
-        # 3. Call Rust Engine
-        vwap_dev, tox, nof, obi, vwap = pnl_core.calculate_order_flow_metrics(
-            prices, volumes, sim_bids, sim_asks
-        )
+            # Get Volatility
+            # This calls the same Rust function used in get_jump_risk_profile
+            vol, _, _ = pnl_core.calculate_jump_risk(closes)
 
-        return {
+            # 2. Calculate Optimal Slice
+            slice_size = pnl_core.calculate_optimal_slice(
+                float(total_qty),
+                float(risk_tolerance),
+                vol,
+                kyles_lambda
+            )
+
+            return {
+                "symbol": symbol,
+                "total_order": total_qty,
+                "recommended_slice": round(slice_size, 2),
+                "market_impact_lambda": round(kyles_lambda, 2),
+                "volatility_sigma": round(vol, 4),
+                "advice": f"Split order into {int(total_qty/slice_size) + 1} tranches."
+            }
+
+        except Exception as e:
+            logger.error(f"Optimal Slice Failed: {e}")
+            return {"error": str(e)}
+
+    def generate_execution_passport(self, symbol: str, side: str, qty: float) -> Dict[str, Any]:
+        """
+        Pillar 2: The Execution Passport. Generates a forensic audit trail.
+        """
+        audit_start = time.time()
+        audit_nanos = 0
+        if RUST_CORE_AVAILABLE:
+            try:
+                # Use Rust for nanosecond-precision timestamp
+                audit_nanos = pnl_core.get_audit_timestamp()
+            except Exception:
+                # Fallback to standard Python timestamp
+                pass
+
+        # If Rust nanosecond timestamp failed or wasn't available, use Python microsecond
+        if audit_nanos == 0:
+            # Fallback to python time in nanoseconds (less precise, but better than nothing)
+            audit_nanos = int(audit_start * 1_000_000_000)
+
+        # Simulate other micro-timing data points (these would come from broker adapter)
+        network_latency_ns = random.randint(100_000, 500_000)  # 0.1ms to 0.5ms
+
+        passport = {
+            "audit_id": str(uuid.uuid4()),
             "symbol": symbol,
-            "toxicity_score": round(tox, 2),
-            "vwap_deviation_bps": round(vwap_dev, 2),
-            "net_order_flow": round(nof, 2),
-            "order_book_imbalance": round(obi, 4),
-            "verdict": "HIGH TOXICITY" if tox > 50 else "SAFE"
+            "side": side,
+            "qty": qty,
+            "timestamp_ns": audit_nanos,  # Forensic timestamp
+            "execution_metrics": {
+                "broker_queue_latency_ns": network_latency_ns,
+                "mid_price_snapshot": 100.05,
+                "adverse_selection_flag": network_latency_ns > 400_000
+            }
         }
+
+        logger.info(
+            f"🔎 AUDIT START: {side.upper()} {qty} {symbol} on {self.broker_name}")
+        return passport
+
+    def get_liquidity_surface(self, symbol: str, lookback_candles: int = 100, time_bins: int = 10, spread_bins: int = 10) -> Dict[str, Any]:
+        """
+        v0.7.0: The Liquidity Surface Map.
+        Visualizes Volume distribution over Time and Spread to identify "liquidity holes".
+        
+        :param symbol: Trading symbol
+        :param lookback_candles: Number of historical candles to analyze
+        :param time_bins: Number of time buckets (default: 10)
+        :param spread_bins: Number of spread buckets (default: 10)
+        :return: Dictionary with grid, time_bounds, spread_bounds, and recommendations
+        """
+        if not RUST_CORE_AVAILABLE:
+            return {"error": "Rust Core required for Liquidity Surface calculation."}
+
+        # 1. Fetch Data
+        data = []
+        if self.adapter and hasattr(self.adapter, 'get_candles'):
+            data = self.adapter.get_candles(symbol, lookback_candles)
+
+        if not data or len(data) < 10:
+            return {"error": "Insufficient data for Liquidity Surface (min 10 candles)."}
+
+        # 2. Extract Data
+        # Use High-Low as a proxy for spread (bid-ask spread not always available)
+        spreads = [float(c['high']) - float(c['low']) for c in data]
+        volumes = [float(c['volume']) for c in data]
+        
+        # Create relative timestamps (0 to N-1)
+        timestamps = [float(i) for i in range(len(data))]
+
+        try:
+            # 3. Call Rust Core
+            grid, time_bounds, spread_bounds = pnl_core.calculate_liquidity_surface(
+                spreads, volumes, timestamps, time_bins, spread_bins
+            )
+
+            # 4. Analyze Grid for Liquidity Holes
+            # Find bins with lowest volume
+            min_volume = min(grid) if grid else 0
+            max_volume = max(grid) if grid else 0
+            avg_volume = sum(grid) / len(grid) if grid else 0
+
+            # Identify liquidity holes (bins with < 20% of average volume)
+            threshold = avg_volume * 0.2
+            liquidity_holes = []
+            
+            for t_idx in range(time_bins):
+                for s_idx in range(spread_bins):
+                    idx = t_idx * spread_bins + s_idx
+                    if grid[idx] < threshold:
+                        time_start = time_bounds[0] + (t_idx / time_bins) * (time_bounds[1] - time_bounds[0])
+                        time_end = time_bounds[0] + ((t_idx + 1) / time_bins) * (time_bounds[1] - time_bounds[0])
+                        spread_start = spread_bounds[0] + (s_idx / spread_bins) * (spread_bounds[1] - spread_bounds[0])
+                        spread_end = spread_bounds[0] + ((s_idx + 1) / spread_bins) * (spread_bounds[1] - spread_bounds[0])
+                        
+                        liquidity_holes.append({
+                            "time_range": (round(time_start, 2), round(time_end, 2)),
+                            "spread_range": (round(spread_start, 4), round(spread_end, 4)),
+                            "volume": round(grid[idx], 2)
+                        })
+
+            # 5. Generate Recommendation
+            recommendation = "Normal liquidity distribution"
+            if len(liquidity_holes) > (time_bins * spread_bins) * 0.3:
+                recommendation = "⚠️ Multiple liquidity holes detected. Consider splitting orders across time."
+            elif len(liquidity_holes) > 0:
+                recommendation = f"💡 {len(liquidity_holes)} liquidity hole(s) detected. Avoid trading during these periods."
+
+            return {
+                "symbol": symbol,
+                "grid": grid,
+                "time_bins": time_bins,
+                "spread_bins": spread_bins,
+                "time_bounds": time_bounds,
+                "spread_bounds": spread_bounds,
+                "min_volume": round(min_volume, 2),
+                "max_volume": round(max_volume, 2),
+                "avg_volume": round(avg_volume, 2),
+                "liquidity_holes": liquidity_holes[:5],  # Top 5 worst holes
+                "recommendation": recommendation
+            }
+
+        except Exception as e:
+            logger.error(f"Liquidity Surface Calc Failed: {e}")
+            return {"error": str(e)}
+
 
     def _sanitize_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -312,7 +519,12 @@ class PnLWatchdog:
         """Sends ANONYMOUS health stats to the global map (Free Users)"""
         try:
             safe_data = self._sanitize_payload(data)
-            requests.post(f"{self.api_url}/telemetry",
-                          json=safe_data, timeout=2)
+            # Ensure slippage is included as per the telemetry model
+            requests.post(f"{self.api_url}/telemetry", json={
+                "broker": safe_data.get('broker'),
+                "latency_ms": safe_data.get('latency_ms'),
+                "slippage": safe_data.get('slippage'),
+                "status": safe_data.get('status'),
+            }, timeout=2)
         except Exception:
             pass

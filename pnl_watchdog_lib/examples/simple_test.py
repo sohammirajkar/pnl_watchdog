@@ -1,4 +1,4 @@
-from pnl_watchdog.watchdog import PnLWatchdog
+from pnl_watchdog import PnLWatchdog
 import sys
 import os
 

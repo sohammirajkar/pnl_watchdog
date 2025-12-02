@@ -89,8 +89,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pnl_watchdog"
-version = "0.6.0"
+name = "pnl_core"
+version = "0.6.2"
 dependencies = [
  "pyo3",
 ]

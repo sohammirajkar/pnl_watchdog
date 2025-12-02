@@ -32,8 +32,9 @@ __title__ = "pnl-watchdog"
 __description__ = "Infrastructure Economics Advisor for Retail Traders"
 
 try:
+    from .watchdog import PnLWatchdog
     from .pnl_watchdog import calculate_whale_metrics, calculate_order_flow_metrics
-    __all__ = ["calculate_whale_metrics", "calculate_order_flow_metrics"]
+    __all__ = ["PnLWatchdog", "calculate_whale_metrics", "calculate_order_flow_metrics"]
 except ImportError:
     # Fallback if Rust module is not available
     __all__ = []

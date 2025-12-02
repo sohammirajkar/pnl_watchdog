@@ -1,17 +1,15 @@
 [package]
-name = "pnl_watchdog"
-version = "0.6.0"
+name = "pnl_core"
+version = "0.6.2"
 edition = "2021"
-description = "Infrastructure Economics Advisor: Measure Kyle's Lambda fairness gaps using Rust-accelerated calculations. Optimize trading strategy within broker latency constraints."
+description = "Infrastructure Economics Advisor: Measure Kyle's Lambda fairness gaps using Rust-accelerated calculations."
 license = "MIT"
-homepage = "https://github.com/sohammirajkar/pnl_watchdog"
-repository = "https://github.com/sohammirajkar/pnl_watchdog"
-documentation = "https://github.com/sohammirajkar/pnl_watchdog#readme"
 
+# ⚠️ CRITICAL: This must match 'import pnl_core' in Python
 [lib]
-name = "pnl_watchdog"
+name = "pnl_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-# We explicitly use 0.21+ to match the new syntax
+# Using PyO3 0.21+ syntax (Bound API)
 pyo3 = { version = "0.21.2", features = ["extension-module"] }

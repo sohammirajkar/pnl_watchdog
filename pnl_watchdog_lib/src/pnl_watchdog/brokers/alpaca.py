@@ -58,5 +58,50 @@ class AlpacaAdapter(BrokerAdapter):
 
         return normalized
 
+    def get_candles(self, symbol: str, lookback_candles: int = 100):
+        """
+        Fetch historical OHLCV candle data from Alpaca.
+        """
+        base_url = "https://data.alpaca.markets"
+        
+        headers = {
+            "APCA-API-KEY-ID": self.api_key,
+            "APCA-API-SECRET-KEY": self.api_secret
+        }
+        
+        # Use 5-minute bars
+        try:
+            resp = requests.get(
+                f"{base_url}/v2/stocks/{symbol}/bars",
+                headers=headers,
+                params={
+                    "timeframe": "5Min",
+                    "limit": lookback_candles
+                }
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            
+            if 'bars' not in data or not data['bars']:
+                return []
+            
+            # Normalize to standard format
+            candles = []
+            for bar in data['bars']:
+                candles.append({
+                    'timestamp': parser.parse(bar['t']).timestamp(),
+                    'open': float(bar['o']),
+                    'high': float(bar['h']),
+                    'low': float(bar['l']),
+                    'close': float(bar['c']),
+                    'volume': float(bar['v'])
+                })
+            
+            return candles
+            
+        except Exception as e:
+            print(f"⚠️ Alpaca Candle Data Error: {e}")
+            return []
+
     def normalize_symbol(self, symbol: str):
         return symbol.upper()  # Alpaca just likes uppercase

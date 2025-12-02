@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 
 [project]
-name = "pnl-watchdog"
-version = "0.6.0"
+name = "pnl-core"
+version = "0.6.2"
 authors = [{ name = "Soham Mirajkar", email = "b25bs1197@iitj.ac.in" }]
 description = "Infrastructure Economics Advisor: Measure Kyle's Lambda fairness gaps using Rust-accelerated calculations. Optimize trading strategy within broker latency constraints."
 readme = "README.md"
