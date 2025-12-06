@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 sqlalchemy
 psycopg2-binary
@@ -12,9 +12,11 @@ ib_insync>=0.9.70
 logzero
 pyotp
 websocket-client
-numpy==1.24.3
+numpy==1.26.4
+pandas
 scikit-learn
 python-dateutil
 aiohttp
 databento
 maturin
+python-multipart
