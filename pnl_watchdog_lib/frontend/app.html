@@ -179,15 +179,9 @@
                 recentTrades: [],
 
                 init() {
-                    // Simulate Live Data Feed
-                    setInterval(() => {
-                        this.huntScore = Math.max(0, Math.min(100, this.huntScore + (Math.random() - 0.5) * 10));
-                        this.updateChart(this.huntScore);
-                    }, 1000);
-
-                    // Fetch initial stats
+                    // Start in 'Waiting' state - Real data only
+                    this.huntScore = 0;
                     this.fetchStats();
-
                     this.initChart();
                 },
 
