@@ -120,10 +120,17 @@ async def health_check():
     )
 
 @app.get("/", response_class=HTMLResponse, tags=["Frontend"])
-async def serve_dashboard():
-    """Serve the Zero-Build HTML Dashboard."""
-    dashboard_path = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dashboard.html')
-    with open(dashboard_path, 'r', encoding='utf-8') as f:
+async def serve_landing():
+    """Serve the Info-Landing Page."""
+    landing_path = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'landing.html')
+    with open(landing_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+@app.get("/app", response_class=HTMLResponse, tags=["Frontend"])
+async def serve_app():
+    """Serve the Dashboard App."""
+    app_path = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'app.html')
+    with open(app_path, 'r', encoding='utf-8') as f:
         return f.read()
 
 
