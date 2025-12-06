@@ -35,7 +35,11 @@
                     <span
                         class="px-2 py-0.5 rounded text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">MVP</span>
                 </div>
-                <div class="flex gap-4">
+                <div class="flex gap-4 items-center">
+                    <button @click="startDemo()" x-show="!demoRunning && huntScore === 0"
+                        class="px-3 py-1 rounded-full text-xs border border-blue-500 text-blue-400 hover:bg-blue-500/10 transition-colors">
+                        ▶ Try Demo
+                    </button>
                     <button @click="tab = 'monitor'"
                         :class="tab === 'monitor' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'"
                         class="px-3 py-2 rounded-md text-sm font-medium transition-colors">Live Monitor</button>
@@ -61,10 +65,10 @@
                     <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-4">Live Hunt Risk</h3>
                     <div class="flex flex-col items-center justify-center py-6">
                         <div class="text-6xl font-black tabular-nums tracking-tighter" :class="riskColor(huntScore)">
-                            <span x-text="huntScore.toFixed(0)"></span>
+                            <span x-text="huntScore > 0 ? huntScore.toFixed(0) : '--'"></span>
                         </div>
                         <div class="text-sm mt-2 font-medium" :class="riskColor(huntScore)"
-                            x-text="riskLabel(huntScore)"></div>
+                            x-text="huntScore > 0 ? riskLabel(huntScore) : 'WAITING FOR DATA'"></div>
                     </div>
                 </div>
 
@@ -252,7 +256,7 @@
                             labels: Array(20).fill(''),
                             datasets: [{
                                 label: 'Lambda (Impact)',
-                                data: Array(20).fill(50),
+                                data: Array(20).fill(null),
                                 borderColor: '#3b82f6',
                                 tension: 0.4,
                                 borderWidth: 2,
@@ -277,6 +281,28 @@
                     this.chart.data.datasets[0].data.push(val);
                     this.chart.data.datasets[0].data.shift();
                     this.chart.update();
+                },
+
+                demoRunning: false,
+                async startDemo() {
+                    this.demoRunning = true;
+                    this.tab = 'monitor';
+
+                    // Sequence: Normal -> Volatility -> Hunt
+                    const sequence = [
+                        10, 12, 11, 15, // Normal
+                        25, 30, 45, 50, // Volatility Spike
+                        65, 75, 85, 95, // Hunt Detected!
+                        98, 99, 85, 60, // Peak & Cooldown
+                        40, 20, 15, 10  // Return to Normal
+                    ];
+
+                    for (const score of sequence) {
+                        this.huntScore = score;
+                        this.updateChart(score);
+                        await new Promise(r => setTimeout(r, 800)); // 0.8s update rate
+                    }
+                    this.demoRunning = false;
                 }
             }
         }
