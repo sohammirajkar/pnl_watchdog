@@ -20,10 +20,10 @@ class DatabentoAdapter:
         :return: List of candle dictionaries with open, close, volume keys
         """
         try:
-            # Use a broader time range to ensure we get data
-            end_time = datetime(2025, 11, 28, 23, 59, 59)
-            # Get a full day of data
-            start_time = end_time - timedelta(hours=24)
+            # Use a known working historical date within the API license window
+            # The free tier only allows data up to a certain cutoff
+            end_time = datetime(2025, 12, 4, 20, 0, 0)  # Dec 4, 2025 20:00 UTC (market hours)
+            start_time = end_time - timedelta(days=7)
 
             # Fetch data
             data = self.client.timeseries.get_range(
@@ -41,6 +41,8 @@ class DatabentoAdapter:
             for _, row in df.iterrows():
                 candles.append({
                     'open': float(row['open']),
+                    'high': float(row['high']),
+                    'low': float(row['low']),
                     'close': float(row['close']),
                     'volume': float(row['volume'])
                 })

@@ -1,0 +1,28 @@
+2025-12-04 19:45:31,226 - INFO - ✅ Loaded DataBento API Key: db-i...cs3Q
+2025-12-04 19:45:31,226 - INFO - Initialized Historical(gateway=https://hist.databento.com)
+2025-12-04 19:45:31,226 - INFO - 📥 Fetching data for SPY...
+2025-12-04 19:45:35,200 - INFO - ✅ Fetched 58 candles.
+2025-12-04 19:45:35,200 - INFO - 🚀 Starting Stress Test (Simulating Live Feed)...
+2025-12-04 19:45:35,200 - INFO - Tick 50: Price=681.14 | Score=13.1 (SAFE - Normal market conditions) | Lambda=0.000000 | Latency=0.103ms
+2025-12-04 19:45:35,201 - INFO - 
+==================================================
+2025-12-04 19:45:35,201 - INFO - 📊 STRESS TEST RESULTS
+2025-12-04 19:45:35,201 - INFO - ==================================================
+2025-12-04 19:45:35,201 - INFO - Total Ticks Processed: 8
+2025-12-04 19:45:35,201 - INFO - Total Duration:        0.00s
+2025-12-04 19:45:35,201 - INFO - ------------------------------
+2025-12-04 19:45:35,201 - INFO - ⚡ SCALE / PERFORMANCE
+2025-12-04 19:45:35,201 - INFO - Average Latency:       0.038 ms
+2025-12-04 19:45:35,201 - INFO - Max Latency:           0.103 ms
+2025-12-04 19:45:35,201 - INFO - 99th %ile Latency:     0.103 ms
+2025-12-04 19:45:35,201 - INFO - Throughput:            22046.3 ticks/sec
+2025-12-04 19:45:35,201 - INFO - ------------------------------
+2025-12-04 19:45:35,201 - INFO - 🛡️ ADAPTATION / ROBUSTNESS
+2025-12-04 19:45:35,201 - INFO - Risk Score Variance:   0.40
+2025-12-04 19:45:35,201 - INFO - Min Risk Score:        13.1
+2025-12-04 19:45:35,201 - INFO - Max Risk Score:        14.8
+2025-12-04 19:45:35,201 - INFO - Verdict Distribution:
+2025-12-04 19:45:35,201 - INFO -   - SAFE - Normal market conditions: 8
+2025-12-04 19:45:35,201 - INFO - ==================================================
+2025-12-04 19:45:35,201 - INFO - ✅ PASSED: Latency check (<50ms)
+2025-12-04 19:45:35,201 - INFO - ✅ PASSED: Adaptation check (score variance > 0)

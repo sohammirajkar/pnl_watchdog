@@ -1,26 +1,28 @@
+version: '3.8'
+
 services:
-  # 1. The FastAPI Application
-  web:
+  app:
     build: .
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - .:/app
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://user:password@db/pnl_watchdog
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/pnl_watchdog
     depends_on:
       - db
+    restart: always
 
-  # 2. The Database (PostgreSQL)
   db:
-    image: postgres:15
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=pnl_watchdog
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=pnl_watchdog
+      # Initialize schema on first run
+      - ./pnl_watchdog_lib/db/schema.sql:/docker-entrypoint-initdb.d/init.sql
 
 volumes:
   postgres_data:

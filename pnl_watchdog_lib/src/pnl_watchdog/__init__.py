@@ -27,14 +27,33 @@ Read More:
     Research: github.com/sohammirajkar/pnl_watchdog/research
 """
 
-__version__ = "0.6.0"
+__version__ = "0.9.0"
 __title__ = "pnl-watchdog"
-__description__ = "Infrastructure Economics Advisor for Retail Traders"
+__description__ = "Infrastructure Economics Advisor with Stop-Loss Hunt Protection"
 
 try:
     from .watchdog import PnLWatchdog
     from .pnl_watchdog import calculate_whale_metrics, calculate_order_flow_metrics
-    __all__ = ["PnLWatchdog", "calculate_whale_metrics", "calculate_order_flow_metrics"]
-except ImportError:
+    from .stoploss_hunt_detector import (
+        calculate_hunt_risk_score,
+        pre_trade_check,
+        get_protective_collar,
+        HuntRiskResult,
+        PreTradeCheckResult,
+        HUNT_RISK_THRESHOLDS
+    )
+    __all__ = [
+        "PnLWatchdog", 
+        "calculate_whale_metrics", 
+        "calculate_order_flow_metrics",
+        "calculate_hunt_risk_score",
+        "pre_trade_check",
+        "get_protective_collar",
+        "HuntRiskResult",
+        "PreTradeCheckResult",
+        "HUNT_RISK_THRESHOLDS"
+    ]
+except ImportError as e:
     # Fallback if Rust module is not available
+    print(f"Warning: Some modules not available: {e}")
     __all__ = []

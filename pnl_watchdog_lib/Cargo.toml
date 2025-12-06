@@ -1,6 +1,6 @@
 [package]
 name = "pnl_core"
-version = "0.6.2"
+version = "0.7.1" # Bumped version for new execution logic
 edition = "2021"
 description = "Infrastructure Economics Advisor: Measure Kyle's Lambda fairness gaps using Rust-accelerated calculations."
 license = "MIT"
@@ -11,5 +11,17 @@ name = "pnl_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Using PyO3 0.21+ syntax (Bound API)
+# PyO3 for Python bindings
 pyo3 = { version = "0.21.2", features = ["extension-module"] }
+
+# Data structures and linear algebra for core finance calculations
+# Used for matrix operations in models like Almgren-Chriss
+nalgebra = "0.32.3"
+# Statistical functions needed for volatility, jump risk, and distributions
+statrs = "0.16.0"
+# For network streaming (UDP)
+
+
+# For high-precision time stamping
+# Note: Use a more stable crate like chrono or time if full functionality is required.
+# For simple nanosecond timestamp, we rely on standard library features where available.

@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PnL Watchdog - Market Microstructure Dashboard</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script
+        src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface-2: #1a1a24;
+            --border: #1e1e2e;
+            --text: #e4e4e7;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --green: #22c55e;
+            --red: #ef4444;
+            --yellow: #eab308;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .clock {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1000px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1rem;
+        }
+
+        .card-title {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 0.875rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .form-input,
+        .form-textarea {
+            width: 100%;
+            padding: 0.5rem 0.625rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.8rem;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-textarea {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        /* Charts Area */
+        .charts-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .chart-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        .chart-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chart-title {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        #priceChart {
+            height: 280px;
+        }
+
+        #volumeChart {
+            height: 120px;
+        }
+
+        /* Metrics Row */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 0.375rem;
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .metric-value.positive {
+            color: var(--green);
+        }
+
+        .metric-value.negative {
+            color: var(--red);
+        }
+
+        .metric-value.warning {
+            color: var(--yellow);
+        }
+
+        .metric-sub {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Sparkline / Mini charts */
+        .mini-charts {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .mini-chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+        }
+
+        .mini-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .mini-chart-title {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .mini-chart-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .mini-chart-area {
+            height: 60px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Interpretation */
+        .interpretation {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .interpretation-title {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .interpretation-text {
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .highlight {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .highlight-red {
+            color: var(--red);
+            font-weight: 500;
+        }
+
+        .highlight-green {
+            color: var(--green);
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">🐶 PnL Watchdog</div>
+            <div class="clock" id="clock">--:--:-- IST</div>
+        </header>
+
+        <div class="main-grid">
+            <!-- Left: Input -->
+            <div class="card">
+                <div class="card-title">📊 Input Data</div>
+
+                <div class="form-group">
+                    <label class="form-label">Symbol</label>
+                    <input type="text" class="form-input" id="symbol" value="NIFTY84900CE">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">OHLCV Data (JSON)</label>
+                    <textarea class="form-textarea" id="candles"></textarea>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="loadSample()">Sample</button>
+                    <button class="btn btn-primary" onclick="analyze()" id="analyzeBtn">Analyze</button>
+                </div>
+
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <div class="form-label" style="margin-bottom: 0.5rem;">Quick Presets</div>
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="loadPreset('normal')"
+                            style="font-size:0.7rem;">Normal</button>
+                        <button class="btn btn-secondary" onclick="loadPreset('volatile')"
+                            style="font-size:0.7rem;">Volatile</button>
+                        <button class="btn btn-secondary" onclick="loadPreset('hunt')" style="font-size:0.7rem;">Stop
+                            Hunt</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Charts & Metrics -->
+            <div class="charts-area" id="chartsArea">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">📈</div>
+                    <div>Paste OHLCV data and click Analyze</div>
+                    <div style="font-size: 0.75rem; margin-top: 0.5rem;">Or try a preset to see sample patterns</div>
+                </div>
+
+                <div id="resultsArea" style="display: none;">
+                    <!-- Price Chart -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title">Price Action (Candlestick)</span>
+                            <div class="chart-legend">
+                                <div class="legend-item">
+                                    <div class="legend-dot" style="background: var(--green);"></div> Bullish
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot" style="background: var(--red);"></div> Bearish
+                                </div>
+                            </div>
+                        </div>
+                        <div id="priceChart"></div>
+                    </div>
+
+                    <!-- Volume Chart -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <span class="chart-title">Volume</span>
+                        </div>
+                        <div id="volumeChart"></div>
+                    </div>
+
+                    <!-- Metrics -->
+                    <div class="metrics-row">
+                        <div class="metric-card">
+                            <div class="metric-label">Kyle's Lambda</div>
+                            <div class="metric-value" id="lambda">--</div>
+                            <div class="metric-sub">Price impact/unit</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Volume Imbalance</div>
+                            <div class="metric-value" id="imbalance">--</div>
+                            <div class="metric-sub">Buy/Sell ratio</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Volatility</div>
+                            <div class="metric-value" id="volatility">--</div>
+                            <div class="metric-sub">Std dev of returns</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Price Change</div>
+                            <div class="metric-value" id="priceChange">--</div>
+                            <div class="metric-sub">First to last</div>
+                        </div>
+                    </div>
+
+                    <!-- Mini Charts for metrics over time -->
+                    <div class="mini-charts">
+                        <div class="mini-chart-card">
+                            <div class="mini-chart-header">
+                                <span class="mini-chart-title">Spread (High-Low) %</span>
+                                <span class="mini-chart-value" id="avgSpread">--</span>
+                            </div>
+                            <div class="mini-chart-area" id="spreadChart"></div>
+                        </div>
+                        <div class="mini-chart-card">
+                            <div class="mini-chart-header">
+                                <span class="mini-chart-title">Per-Candle Returns</span>
+                                <span class="mini-chart-value" id="maxReturn">--</span>
+                            </div>
+                            <div class="mini-chart-area" id="returnsChart"></div>
+                        </div>
+                    </div>
+
+                    <!-- Interpretation -->
+                    <div class="interpretation">
+                        <div class="interpretation-title">📋 What The Data Shows</div>
+                        <div class="interpretation-text" id="interpretation">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let priceChart, volumeChart, spreadChart, returnsChart;
+
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('en-IN', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false, timeZone: 'Asia/Kolkata'
+            }) + ' IST';
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Presets
+        const presets = {
+            normal: [
+                { "open": 180, "high": 182, "low": 179, "close": 181, "volume": 10000 },
+                { "open": 181, "high": 183, "low": 180, "close": 182, "volume": 11000 },
+                { "open": 182, "high": 184, "low": 181, "close": 183, "volume": 12000 },
+                { "open": 183, "high": 185, "low": 182, "close": 184, "volume": 11500 },
+                { "open": 184, "high": 186, "low": 183, "close": 185, "volume": 10500 },
+                { "open": 185, "high": 187, "low": 184, "close": 186, "volume": 11000 },
+                { "open": 186, "high": 188, "low": 185, "close": 187, "volume": 10000 }
+            ],
+            volatile: [
+                { "open": 180, "high": 190, "low": 175, "close": 188, "volume": 25000 },
+                { "open": 188, "high": 195, "low": 182, "close": 178, "volume": 35000 },
+                { "open": 178, "high": 185, "low": 170, "close": 182, "volume": 40000 },
+                { "open": 182, "high": 192, "low": 178, "close": 190, "volume": 30000 },
+                { "open": 190, "high": 198, "low": 185, "close": 175, "volume": 45000 },
+                { "open": 175, "high": 180, "low": 168, "close": 178, "volume": 38000 }
+            ],
+            hunt: [
+                { "open": 180, "high": 182, "low": 179, "close": 181, "volume": 12000 },
+                { "open": 181, "high": 183, "low": 180, "close": 182, "volume": 14000 },
+                { "open": 182, "high": 184, "low": 181, "close": 183, "volume": 15000 },
+                { "open": 183, "high": 184, "low": 165, "close": 168, "volume": 85000 },
+                { "open": 168, "high": 170, "low": 160, "close": 162, "volume": 120000 },
+                { "open": 162, "high": 180, "low": 161, "close": 178, "volume": 90000 },
+                { "open": 178, "high": 185, "low": 176, "close": 183, "volume": 50000 }
+            ]
+        };
+
+        function loadSample() { loadPreset('volatile'); }
+
+        function loadPreset(name) {
+            document.getElementById('candles').value = JSON.stringify(presets[name], null, 2);
+        }
+
+        async function analyze() {
+            const candlesRaw = document.getElementById('candles').value;
+            let candles;
+
+            try {
+                candles = JSON.parse(candlesRaw);
+                if (!Array.isArray(candles) || candles.length < 3) {
+                    alert('Need at least 3 candles');
+                    return;
+                }
+            } catch (e) {
+                alert('Invalid JSON format');
+                return;
+            }
+
+            document.getElementById('analyzeBtn').disabled = true;
+
+            // Show results area
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultsArea').style.display = 'flex';
+            document.getElementById('resultsArea').style.flexDirection = 'column';
+            document.getElementById('resultsArea').style.gap = '1rem';
+
+            // Clear old charts
+            document.getElementById('priceChart').innerHTML = '';
+            document.getElementById('volumeChart').innerHTML = '';
+            document.getElementById('spreadChart').innerHTML = '';
+            document.getElementById('returnsChart').innerHTML = '';
+
+            // Create charts
+            createPriceChart(candles);
+            createVolumeChart(candles);
+            createSpreadChart(candles);
+            createReturnsChart(candles);
+
+            // Calculate and display metrics
+            displayMetrics(candles);
+
+            // Call API for Lambda/Imbalance
+            try {
+                const response = await fetch('http://localhost:8000/v1/hunt-score', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: document.getElementById('symbol').value,
+                        candles: candles,
+                        asset_class: 'EQUITIES',
+                        order_size: 100,
+                        market_depth: 1000000
+                    })
+                });
+
+                const data = await response.json();
+                document.getElementById('lambda').textContent = data.metrics.kyles_lambda.toFixed(6);
+                document.getElementById('imbalance').textContent = (data.metrics.volume_imbalance >= 0 ? '+' : '') + data.metrics.volume_imbalance.toFixed(3);
+
+                const imb = data.metrics.volume_imbalance;
+                document.getElementById('imbalance').className = 'metric-value ' + (imb > 0.3 ? 'positive' : imb < -0.3 ? 'negative' : '');
+
+            } catch (e) {
+                document.getElementById('lambda').textContent = 'API err';
+                document.getElementById('imbalance').textContent = 'API err';
+            }
+
+            document.getElementById('analyzeBtn').disabled = false;
+        }
+
+        function createPriceChart(candles) {
+            const container = document.getElementById('priceChart');
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 280,
+                layout: { background: { color: '#12121a' }, textColor: '#71717a' },
+                grid: { vertLines: { color: '#1e1e2e' }, horzLines: { color: '#1e1e2e' } },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                rightPriceScale: { borderColor: '#1e1e2e' },
+                timeScale: { borderColor: '#1e1e2e', timeVisible: false }
+            });
+
+            const candlestickSeries = chart.addCandlestickSeries({
+                upColor: '#22c55e',
+                downColor: '#ef4444',
+                borderUpColor: '#22c55e',
+                borderDownColor: '#ef4444',
+                wickUpColor: '#22c55e',
+                wickDownColor: '#ef4444'
+            });
+
+            const data = candles.map((c, i) => ({
+                time: i,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close
+            }));
+
+            candlestickSeries.setData(data);
+            chart.timeScale().fitContent();
+            priceChart = chart;
+        }
+
+        function createVolumeChart(candles) {
+            const container = document.getElementById('volumeChart');
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 120,
+                layout: { background: { color: '#12121a' }, textColor: '#71717a' },
+                grid: { vertLines: { color: '#1e1e2e' }, horzLines: { color: '#1e1e2e' } },
+                rightPriceScale: { borderColor: '#1e1e2e' },
+                timeScale: { borderColor: '#1e1e2e', timeVisible: false }
+            });
+
+            const volumeSeries = chart.addHistogramSeries({
+                priceFormat: { type: 'volume' },
+                priceScaleId: ''
+            });
+
+            const data = candles.map((c, i) => ({
+                time: i,
+                value: c.volume,
+                color: c.close >= c.open ? '#22c55e80' : '#ef444480'
+            }));
+
+            volumeSeries.setData(data);
+            chart.timeScale().fitContent();
+            volumeChart = chart;
+        }
+
+        function createSpreadChart(candles) {
+            const container = document.getElementById('spreadChart');
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 60,
+                layout: { background: { color: '#1a1a24' }, textColor: '#71717a' },
+                grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+                rightPriceScale: { visible: false },
+                timeScale: { visible: false },
+                handleScroll: false,
+                handleScale: false
+            });
+
+            const areaSeries = chart.addAreaSeries({
+                topColor: '#3b82f640',
+                bottomColor: '#3b82f610',
+                lineColor: '#3b82f6',
+                lineWidth: 2
+            });
+
+            const spreads = candles.map((c, i) => ({
+                time: i,
+                value: ((c.high - c.low) / c.close) * 100
+            }));
+
+            areaSeries.setData(spreads);
+            chart.timeScale().fitContent();
+
+            // Update avg spread
+            const avg = spreads.reduce((a, b) => a + b.value, 0) / spreads.length;
+            document.getElementById('avgSpread').textContent = avg.toFixed(2) + '%';
+            spreadChart = chart;
+        }
+
+        function createReturnsChart(candles) {
+            const container = document.getElementById('returnsChart');
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 60,
+                layout: { background: { color: '#1a1a24' }, textColor: '#71717a' },
+                grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+                rightPriceScale: { visible: false },
+                timeScale: { visible: false },
+                handleScroll: false,
+                handleScale: false
+            });
+
+            const histogramSeries = chart.addHistogramSeries({
+                priceFormat: { type: 'price', precision: 2 }
+            });
+
+            const returns = candles.map((c, i) => {
+                const ret = ((c.close - c.open) / c.open) * 100;
+                return {
+                    time: i,
+                    value: ret,
+                    color: ret >= 0 ? '#22c55e' : '#ef4444'
+                };
+            });
+
+            histogramSeries.setData(returns);
+            chart.timeScale().fitContent();
+
+            // Max return
+            const maxRet = Math.max(...returns.map(r => Math.abs(r.value)));
+            document.getElementById('maxReturn').textContent = maxRet.toFixed(1) + '%';
+            document.getElementById('maxReturn').className = 'mini-chart-value ' + (maxRet > 5 ? 'warning' : '');
+            returnsChart = chart;
+        }
+
+        function displayMetrics(candles) {
+            const closes = candles.map(c => c.close);
+            const opens = candles.map(c => c.open);
+            const volumes = candles.map(c => c.volume);
+
+            // Volatility
+            const returns = [];
+            for (let i = 1; i < closes.length; i++) {
+                returns.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+            }
+            const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+            const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+            const vol = Math.sqrt(variance) * 100;
+
+            document.getElementById('volatility').textContent = vol.toFixed(2) + '%';
+            document.getElementById('volatility').className = 'metric-value ' + (vol > 5 ? 'warning' : '');
+
+            // Price change
+            const change = ((closes[closes.length - 1] - opens[0]) / opens[0]) * 100;
+            document.getElementById('priceChange').textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+            document.getElementById('priceChange').className = 'metric-value ' + (change >= 0 ? 'positive' : 'negative');
+
+            // Generate interpretation
+            generateInterpretation(candles, vol, change);
+        }
+
+        function generateInterpretation(candles, vol, priceChange) {
+            const interp = [];
+            const volumes = candles.map(c => c.volume);
+            const avgVol = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+            const maxVol = Math.max(...volumes);
+            const maxVolIdx = volumes.indexOf(maxVol);
+
+            // Volume spike
+            if (maxVol > avgVol * 2.5) {
+                const candle = candles[maxVolIdx];
+                const move = ((candle.close - candle.open) / candle.open * 100).toFixed(1);
+                const direction = candle.close >= candle.open ? 'up' : 'down';
+                interp.push(`<span class="highlight">Volume spike</span> at candle ${maxVolIdx + 1}: ${(maxVol / 1000).toFixed(0)}K (${(maxVol / avgVol).toFixed(1)}x avg). Price moved <span class="${direction === 'up' ? 'highlight-green' : 'highlight-red'}">${move}%</span> ${direction}.`);
+            }
+
+            // Volatility
+            if (vol > 5) {
+                interp.push(`<span class="highlight">High volatility</span> (${vol.toFixed(1)}%) — price is moving significantly between candles.`);
+            }
+
+            // Large single-candle move
+            for (let i = 0; i < candles.length; i++) {
+                const c = candles[i];
+                const move = Math.abs((c.close - c.open) / c.open * 100);
+                if (move > 5) {
+                    const dir = c.close >= c.open ? 'bullish' : 'bearish';
+                    interp.push(`Candle ${i + 1}: <span class="${c.close >= c.open ? 'highlight-green' : 'highlight-red'}">${move.toFixed(1)}% ${dir}</span> move with ${(c.volume / 1000).toFixed(0)}K volume.`);
+                }
+            }
+
+            // Spread widening
+            const spreads = candles.map(c => (c.high - c.low) / c.close * 100);
+            const maxSpread = Math.max(...spreads);
+            if (maxSpread > 8) {
+                const idx = spreads.indexOf(maxSpread);
+                interp.push(`<span class="highlight">Wide spread</span> at candle ${idx + 1}: ${maxSpread.toFixed(1)}% range — potential liquidity gap.`);
+            }
+
+            // V-recovery pattern (stop hunt signature)
+            if (candles.length >= 4) {
+                for (let i = 2; i < candles.length - 1; i++) {
+                    const prev = candles[i - 1].close;
+                    const low = candles[i].low;
+                    const close = candles[i].close;
+                    const next = candles[i + 1].close;
+
+                    // Sharp drop then recovery
+                    if ((prev - low) / prev > 0.05 && (next - low) / low > 0.05) {
+                        interp.push(`<span class="highlight-red">V-pattern</span> at candle ${i + 1}: Sharp drop to ${low.toFixed(0)} then recovery to ${next.toFixed(0)}. This is a classic stop-hunt signature.`);
+                    }
+                }
+            }
+
+            if (interp.length === 0) {
+                interp.push('Price action appears relatively stable with no major anomalies.');
+            }
+
+            document.getElementById('interpretation').innerHTML = interp.join('<br><br>');
+        }
+
+        // Resize charts on window resize
+        window.addEventListener('resize', () => {
+            if (priceChart) priceChart.resize(document.getElementById('priceChart').clientWidth, 280);
+            if (volumeChart) volumeChart.resize(document.getElementById('volumeChart').clientWidth, 120);
+            if (spreadChart) spreadChart.resize(document.getElementById('spreadChart').clientWidth, 60);
+            if (returnsChart) returnsChart.resize(document.getElementById('returnsChart').clientWidth, 60);
+        });
+    </script>
+</body>
+
+</html>

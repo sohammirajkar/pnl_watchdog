@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PnL Watchdog | Execution Monitor</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js (Lightweight Reactivity) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .gauge-bg {
+            background: conic-gradient(from 180deg at 50% 100%, #ef4444 0deg, #eab308 90deg, #22c55e 180deg);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-900 text-slate-100 font-sans antialiased" x-data="dashboard()">
+
+    <!-- Navbar -->
+    <nav class="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🐶</span>
+                    <span class="font-bold text-xl tracking-tight">PnL Watchdog</span>
+                    <span
+                        class="px-2 py-0.5 rounded text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">MVP</span>
+                </div>
+                <div class="flex gap-4">
+                    <button @click="tab = 'monitor'"
+                        :class="tab === 'monitor' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'"
+                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors">Live Monitor</button>
+                    <button @click="tab = 'journal'"
+                        :class="tab === 'journal' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'"
+                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors">Trade Journal</button>
+                    <button @click="tab = 'import'"
+                        :class="tab === 'import' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'"
+                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors">Import Data</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+
+        <!-- Live Monitor Tab -->
+        <div x-show="tab === 'monitor'" x-cloak class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Hunt Score Card -->
+                <div class="col-span-1 bg-slate-950 border border-slate-800 rounded-xl p-6 relative overflow-hidden">
+                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-4">Live Hunt Risk</h3>
+                    <div class="flex flex-col items-center justify-center py-6">
+                        <div class="text-6xl font-black tabular-nums tracking-tighter" :class="riskColor(huntScore)">
+                            <span x-text="huntScore.toFixed(0)"></span>
+                        </div>
+                        <div class="text-sm mt-2 font-medium" :class="riskColor(huntScore)"
+                            x-text="riskLabel(huntScore)"></div>
+                    </div>
+                </div>
+
+                <!-- Lambda Chart -->
+                <div class="col-span-2 bg-slate-950 border border-slate-800 rounded-xl p-6">
+                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Market Impact (Kyle's
+                        Lambda)</h3>
+                    <canvas id="lambdaChart" class="w-full h-48"></canvas>
+                </div>
+            </div>
+
+            <!-- Pre-Trade Check -->
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Pre-Trade Flight Check</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <input type="text" placeholder="Symbol (e.g. NVDA)"
+                        class="bg-slate-900 border border-slate-700 rounded px-3 py-2 focus:border-blue-500 outline-none">
+                    <input type="number" placeholder="Qty"
+                        class="bg-slate-900 border border-slate-700 rounded px-3 py-2 focus:border-blue-500 outline-none">
+                    <button
+                        class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded transition-colors col-span-2">
+                        Analyze Execution Risk
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Journal Tab -->
+        <div x-show="tab === 'journal'" x-cloak>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+                <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">Trade History</h3>
+                    <button @click="fetchStats()" class="text-sm text-blue-400 hover:text-blue-300">Refresh</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-400 uppercase bg-slate-900">
+                            <tr>
+                                <th class="px-6 py-3">Time</th>
+                                <th class="px-6 py-3">Symbol</th>
+                                <th class="px-6 py-3">Side</th>
+                                <th class="px-6 py-3 text-right">Qty</th>
+                                <th class="px-6 py-3 text-right">Price</th>
+                                <th class="px-6 py-3">Broker</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            <template x-for="trade in recentTrades" :key="trade.timestamp">
+                                <tr class="hover:bg-slate-900/50 transition-colors">
+                                    <td class="px-6 py-4 font-mono text-slate-400" x-text="formatDate(trade.timestamp)">
+                                    </td>
+                                    <td class="px-6 py-4 font-bold text-white" x-text="trade.symbol"></td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-2 py-1 rounded text-xs font-bold"
+                                            :class="trade.side.toLowerCase() === 'buy' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'"
+                                            x-text="trade.side.toUpperCase()"></span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right tabular-nums" x-text="trade.qty"></td>
+                                    <td class="px-6 py-4 text-right tabular-nums text-slate-300" x-text="trade.price">
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-2 py-1 rounded text-xs bg-slate-800 text-slate-400"
+                                            x-text="trade.broker"></span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div x-show="recentTrades.length === 0" class="p-12 text-center text-slate-500">
+                    No trades found. Go to Import tab.
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Tab -->
+        <div x-show="tab === 'import'" x-cloak class="max-w-2xl mx-auto">
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-8 text-center space-y-6">
+                <div
+                    class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto text-blue-400 text-2xl">
+                    📥
+                </div>
+                <h3 class="text-xl font-bold">Import Trade History</h3>
+                <p class="text-slate-400">Upload your broker's tradebook CSV to analyze past execution quality.</p>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <label
+                        class="block p-6 border-2 border-dashed border-slate-700 rounded-xl hover:border-blue-500 hover:bg-slate-900 cursor-pointer transition-all group">
+                        <span class="block text-lg font-semibold mb-1 group-hover:text-blue-400">Zerodha</span>
+                        <span class="text-xs text-slate-500">Tradebook CSV</span>
+                        <input type="file" class="hidden" @change="uploadFile($event, 'zerodha')">
+                    </label>
+
+                    <label
+                        class="block p-6 border-2 border-dashed border-slate-700 rounded-xl hover:border-blue-500 hover:bg-slate-900 cursor-pointer transition-all group">
+                        <span class="block text-lg font-semibold mb-1 group-hover:text-amber-400">Binance</span>
+                        <span class="text-xs text-slate-500">Trade History CSV</span>
+                        <input type="file" class="hidden" @change="uploadFile($event, 'binance')">
+                    </label>
+                </div>
+                <div id="uploadStatus" class="text-sm font-medium h-6"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function dashboard() {
+            return {
+                tab: 'monitor',
+                huntScore: 15,
+                recentTrades: [],
+
+                init() {
+                    // Simulate Live Data Feed
+                    setInterval(() => {
+                        this.huntScore = Math.max(0, Math.min(100, this.huntScore + (Math.random() - 0.5) * 10));
+                        this.updateChart(this.huntScore);
+                    }, 1000);
+
+                    // Fetch initial stats
+                    this.fetchStats();
+
+                    this.initChart();
+                },
+
+                async fetchStats() {
+                    try {
+                        const res = await fetch('/stats/pnl');
+                        const data = await res.json();
+                        this.recentTrades = data.recent_activity || [];
+                    } catch (e) {
+                        console.error("Failed to fetch stats", e);
+                    }
+                },
+
+                async uploadFile(e, broker) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const statusEl = document.getElementById('uploadStatus');
+                    statusEl.innerText = `Uploading to ${broker}...`;
+                    statusEl.className = "text-blue-400 animate-pulse";
+
+                    try {
+                        const res = await fetch(`/import/${broker}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            statusEl.innerText = `✅ Imported ${data.imported_count} trades!`;
+                            statusEl.className = "text-green-400";
+                            this.fetchStats();
+                            setTimeout(() => this.tab = 'journal', 1000);
+                        } else {
+                            throw new Error(data.message || 'Import failed');
+                        }
+                    } catch (err) {
+                        statusEl.innerText = `❌ Error: ${err.message}`;
+                        statusEl.className = "text-red-400";
+                    }
+                },
+
+                riskColor(score) {
+                    if (score < 30) return 'text-green-500';
+                    if (score < 70) return 'text-yellow-500';
+                    return 'text-red-500';
+                },
+
+                riskLabel(score) {
+                    if (score < 30) return 'LOW RISK (SAFE)';
+                    if (score < 70) return 'CAUTION';
+                    return 'DANGER: SL HUNT LIKELY';
+                },
+
+                formatDate(isoStr) {
+                    return new Date(isoStr).toLocaleString();
+                },
+
+                // Chart.js Setup
+                chart: null,
+                initChart() {
+                    const ctx = document.getElementById('lambdaChart').getContext('2d');
+                    this.chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: Array(20).fill(''),
+                            datasets: [{
+                                label: 'Lambda (Impact)',
+                                data: Array(20).fill(50),
+                                borderColor: '#3b82f6',
+                                tension: 0.4,
+                                borderWidth: 2,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { display: false, min: 0, max: 100 },
+                                x: { display: false }
+                            },
+                            animation: { duration: 0 }
+                        }
+                    });
+                },
+
+                updateChart(val) {
+                    if (!this.chart) return;
+                    this.chart.data.datasets[0].data.push(val);
+                    this.chart.data.datasets[0].data.shift();
+                    this.chart.update();
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

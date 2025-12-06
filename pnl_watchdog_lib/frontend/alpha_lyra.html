@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha Console | Execution Intelligence</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030303;
+            --surface: #0F0F0F;
+            --surface-hover: #1A1A1A;
+            --border: #222222;
+            --text: #EDEDED;
+            --text-muted: #888888;
+
+            /* Lyra-inspired Neon Accent */
+            --accent: #CCFF00;
+            --accent-dim: rgba(204, 255, 0, 0.1);
+            --accent-glow: 0 0 20px rgba(204, 255, 0, 0.15);
+
+            --green: #00FF94;
+            --red: #FF3333;
+            --orange: #FF8800;
+
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Subtle Grid Background */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Header */
+        header {
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            background: rgba(3, 3, 3, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            font-size: 1.1rem;
+        }
+
+        .brand-icon {
+            color: var(--accent);
+            text-shadow: var(--accent-glow);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.75rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+        }
+
+        .status-badge.connected {
+            border-color: rgba(0, 255, 148, 0.2);
+            color: var(--green);
+            background: rgba(0, 255, 148, 0.05);
+        }
+
+        .status-badge.connected .status-dot {
+            background: var(--green);
+            box-shadow: 0 0 8px rgba(0, 255, 148, 0.4);
+        }
+
+        /* Main Chat Area */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            scrollbar-width: none;
+            /* Hide scrollbar */
+        }
+
+        .chat-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Welcome State */
+        .welcome-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .welcome-state.hidden {
+            display: none;
+            opacity: 0;
+        }
+
+        .hero-title {
+            font-size: 2.5rem;
+            font-weight: 500;
+            letter-spacing: -0.04em;
+            margin-bottom: 1rem;
+            background: linear-gradient(180deg, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            max-width: 400px;
+            line-height: 1.5;
+            margin-bottom: 3rem;
+        }
+
+        .suggestion-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .suggestion-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1.25rem;
+            border-radius: 12px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-card:hover {
+            border-color: var(--text-muted);
+            background: var(--surface-hover);
+            transform: translateY(-2px);
+        }
+
+        .suggestion-title {
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+
+        .suggestion-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Messages */
+        .message {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message-bubble {
+            padding: 1rem 1.5rem;
+            border-radius: 18px;
+            font-size: 1rem;
+            line-height: 1.5;
+            max-width: 80%;
+        }
+
+        .message.user .message-bubble {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-bubble {
+            background: transparent;
+            padding: 0;
+            max-width: 100%;
+            width: 100%;
+        }
+
+        /* Analysis Card (The "Lyra" Part) */
+        .analysis-card {
+            background: rgba(15, 15, 15, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-top: 1rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .strategy-name {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .ticker-tag {
+            background: var(--surface-hover);
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .verdict-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.35rem 0.85rem;
+            border-radius: 100px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .verdict-safe {
+            background: rgba(0, 255, 148, 0.1);
+            color: var(--green);
+            border: 1px solid rgba(0, 255, 148, 0.2);
+        }
+
+        .verdict-caution {
+            background: rgba(255, 136, 0, 0.1);
+            color: var(--orange);
+            border: 1px solid rgba(255, 136, 0, 0.2);
+        }
+
+        .verdict-danger {
+            background: rgba(255, 51, 51, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(255, 51, 51, 0.2);
+        }
+
+        .card-body {
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .metrics-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+        }
+
+        .metric-val {
+            font-family: var(--font-mono);
+        }
+
+        .metric-val.positive {
+            color: var(--green);
+        }
+
+        .metric-val.negative {
+            color: var(--red);
+        }
+
+        .card-footer {
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .ai-icon {
+            color: var(--accent);
+        }
+
+        /* Input Area */
+        .input-wrapper {
+            padding: 2rem;
+            background: linear-gradient(to top, var(--bg) 80%, transparent);
+        }
+
+        .input-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 0.5rem 0.5rem 0.5rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: border-color 0.2s;
+        }
+
+        .input-bar:focus-within {
+            border-color: var(--text-muted);
+        }
+
+        .text-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: var(--surface-hover);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: var(--border);
+            color: var(--accent);
+        }
+
+        .send-btn {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .send-btn:hover {
+            background: var(--accent);
+            color: black;
+        }
+
+        .mic-active {
+            color: var(--red);
+            background: rgba(255, 51, 51, 0.1);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 51, 51, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 51, 51, 0);
+            }
+        }
+
+        /* Loading Dots */
+        .typing {
+            display: flex;
+            gap: 4px;
+            padding: 1rem;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="brand">
+            <span class="brand-icon">✦</span>
+            Alpha Console
+        </div>
+        <div class="status-badge" id="statusBadge">
+            <div class="status-dot"></div>
+            <span id="statusText">Connecting...</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="chat-container" id="chatContainer">
+            <!-- Welcome State -->
+            <div class="welcome-state" id="welcomeState">
+                <h1 class="hero-title">Execution Intelligence</h1>
+                <p class="hero-subtitle">
+                    Advanced options analytics combined with real-time market microstructure protection.
+                </p>
+
+                <div class="suggestion-grid">
+                    <div class="suggestion-card" onclick="usePrompt('Iron Condor on NVDA')">
+                        <div class="suggestion-title">Iron Condor on NVDA</div>
+                        <div class="suggestion-desc">Analyze risk for neutral strategy</div>
+                    </div>
+                    <div class="suggestion-card" onclick="usePrompt('Buy 100 NIFTY 24500 CE')">
+                        <div class="suggestion-title">Buy NIFTY Call</div>
+                        <div class="suggestion-desc">Check execution liquidity</div>
+                    </div>
+                    <div class="suggestion-card" onclick="usePrompt('Bull Call Spread on AAPL')">
+                        <div class="suggestion-title">Bull Call Spread AAPL</div>
+                        <div class="suggestion-desc">Directional vertical spread</div>
+                    </div>
+                    <div class="suggestion-card" onclick="usePrompt('Straddle on TSLA')">
+                        <div class="suggestion-title">Straddle on TSLA</div>
+                        <div class="suggestion-desc">Volatility play analysis</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages will appear here -->
+        </div>
+
+        <div class="input-wrapper">
+            <div class="input-bar">
+                <button class="action-btn" id="micBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </button>
+                <input type="text" class="text-input" id="userInput" placeholder="Ask Alpha to analyze a trade..."
+                    autocomplete="off">
+                <button class="action-btn send-btn" id="sendBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        const chatContainer = document.getElementById('chatContainer');
+        const welcomeState = document.getElementById('welcomeState');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
+        const statusBadge = document.getElementById('statusBadge');
+
+        let isRecording = false;
+        let recognition = null;
+
+        // --- Voice Setup ---
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (e) => {
+                const text = e.results[0][0].transcript;
+                userInput.value = text;
+                stopRecording();
+                handleSend(); // Auto-send on voice
+            };
+
+            recognition.onend = stopRecording;
+
+            micBtn.onclick = () => {
+                if (isRecording) stopRecording();
+                else startRecording();
+            };
+        }
+
+        function startRecording() {
+            isRecording = true;
+            micBtn.classList.add('mic-active');
+            recognition.start();
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            micBtn.classList.remove('mic-active');
+            try { recognition.stop(); } catch (e) { }
+        }
+
+        // --- Chat Logic ---
+        function usePrompt(text) {
+            userInput.value = text;
+            handleSend();
+        }
+
+        function appendUserMessage(text) {
+            welcomeState.classList.add('hidden');
+            const div = document.createElement('div');
+            div.className = 'message user';
+            div.innerHTML = `<div class="message-bubble">${text}</div>`;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function appendLoading() {
+            const div = document.createElement('div');
+            div.className = 'message assistant loading';
+            div.innerHTML = `
+            <div class="typing">
+                <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+        `;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        function appendAnalysis(data) {
+            const div = document.createElement('div');
+            div.className = 'message assistant';
+
+            const risk = data.execution_risk;
+            const strategy = data.strategy_analysis;
+            const verdictClass = risk.risk_verdict === 'SAFE' ? 'verdict-safe' :
+                risk.risk_verdict === 'CAUTION' ? 'verdict-caution' : 'verdict-danger';
+
+            // Strategy HTML
+            let strategyHtml = '';
+            if (strategy) {
+                strategyHtml = `
+                <div class="section-title">Strategy Greeks</div>
+                <div class="metrics-row">
+                    <span class="metric-label">Delta</span>
+                    <span class="metric-val ${strategy.greeks.delta >= 0 ? 'positive' : 'negative'}">${strategy.greeks.delta.toFixed(2)}</span>
+                </div>
+                <div class="metrics-row">
+                    <span class="metric-label">Theta</span>
+                    <span class="metric-val positive">${strategy.greeks.theta.toFixed(2)}</span>
+                </div>
+                <div class="metrics-row">
+                    <span class="metric-label">Max Profit</span>
+                    <span class="metric-val positive">$${Math.abs(strategy.payoff.max_profit).toFixed(0)}</span>
+                </div>
+                <div class="metrics-row">
+                    <span class="metric-label">Win Rate</span>
+                    <span class="metric-val">${(strategy.payoff.probability_of_profit * 100).toFixed(0)}%</span>
+                </div>
+            `;
+            }
+
+            div.innerHTML = `
+            <div class="analysis-card">
+                <div class="card-header">
+                    <div class="strategy-name">
+                        <span class="ticker-tag">${data.intent.ticker}</span>
+                        ${data.intent.strategy_name || 'Analysis'}
+                    </div>
+                    <div class="verdict-badge ${verdictClass}">${risk.risk_verdict}</div>
+                </div>
+                <div class="card-body">
+                    <div class="col">
+                        ${strategyHtml}
+                    </div>
+                    <div class="col">
+                        <div class="section-title">Execution Risk</div>
+                        <div class="metrics-row">
+                            <span class="metric-label">Kyle's Lambda</span>
+                            <span class="metric-val">${risk.kyles_lambda.toFixed(6)}</span>
+                        </div>
+                        <div class="metrics-row">
+                            <span class="metric-label">Hunt Risk Score</span>
+                            <span class="metric-val">${risk.hunt_risk_score.toFixed(1)}</span>
+                        </div>
+                        <div class="metrics-row">
+                            <span class="metric-label">Imbalance</span>
+                            <span class="metric-val ${risk.volume_imbalance >= 0 ? 'positive' : 'negative'}">${risk.volume_imbalance.toFixed(3)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <span class="ai-icon">✦</span>
+                    ${risk.risk_explanation}
+                </div>
+            </div>
+        `;
+
+            chatContainer.appendChild(div);
+            scrollToBottom();
+
+            // TTS
+            if (data.speak_text) {
+                const u = new SpeechSynthesisUtterance(data.speak_text);
+                speechSynthesis.speak(u);
+            }
+        }
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            userInput.value = '';
+            appendUserMessage(text);
+            const loadingEl = appendLoading();
+
+            try {
+                const res = await fetch(`${API_URL}/v1/alpha/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await res.json();
+
+                loadingEl.remove();
+                appendAnalysis(data);
+
+            } catch (e) {
+                loadingEl.remove();
+                // Error handling
+            }
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // --- Status Check ---
+        async function checkStatus() {
+            try {
+                const res = await fetch(`${API_URL}/v1/alpha/status`);
+                if (res.ok) {
+                    statusBadge.classList.add('connected');
+                    document.getElementById('statusText').innerText = 'Connected';
+                }
+            } catch (e) {
+                statusBadge.classList.remove('connected');
+                document.getElementById('statusText').innerText = 'Disconnected';
+            }
+        }
+
+        // Init
+        checkStatus();
+        setInterval(checkStatus, 10000);
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSend();
+        });
+
+        sendBtn.onclick = handleSend;
+
+    </script>
+</body>
+
+</html>
