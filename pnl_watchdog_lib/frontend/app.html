@@ -1,192 +1,454 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PnL Watchdog | Execution Monitor</title>
-    <!-- Tailwind CSS (CDN) -->
+    <title>PnL Watchdog | Execution Intelligence</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js (Lightweight Reactivity) -->
+    <!-- Alpine & Chart.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                    mono: ['JetBrains Mono', 'monospace'],
+                },
+                extend: {
+                    colors: {
+                        glass: 'rgba(255, 255, 255, 0.05)',
+                        glassBorder: 'rgba(255, 255, 255, 0.1)',
+                        neonBlue: '#3b82f6',
+                        neonRed: '#ef4444',
+                        neonGreen: '#10b981',
+                    },
+                    boxShadow: {
+                        'neon-blue': '0 0 20px rgba(59, 130, 246, 0.3)',
+                        'neon-red': '0 0 20px rgba(239, 68, 68, 0.3)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        [x-cloak] {
-            display: none !important;
+        body {
+            background-color: #000000;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
         }
 
-        .gauge-bg {
-            background: conic-gradient(from 180deg at 50% 100%, #ef4444 0deg, #eab308 90deg, #22c55e 180deg);
+        .glass-card {
+            background: rgba(17, 25, 40, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        [x-cloak] {
+            display: none !important;
         }
     </style>
 </head>
 
-<body class="bg-slate-900 text-slate-100 font-sans antialiased" x-data="dashboard()">
+<body class="text-slate-300 min-h-screen flex flex-col" x-data="dashboard()">
 
-    <!-- Navbar -->
-    <nav class="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex h-16 items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl">🐶</span>
-                    <span class="font-bold text-xl tracking-tight">PnL Watchdog</span>
-                    <span
-                        class="px-2 py-0.5 rounded text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">MVP</span>
+    <!-- Header -->
+    <header class="fixed top-0 w-full z-50 glass-card border-b-0 border-b-white/10 h-16">
+        <div class="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-neon-blue">
+                    <span class="text-lg">🐶</span>
                 </div>
-                <div class="flex gap-4 items-center">
-                    <button @click="startDemo()" x-show="!demoRunning && huntScore === 0"
-                        class="px-3 py-1 rounded-full text-xs border border-blue-500 text-blue-400 hover:bg-blue-500/10 transition-colors">
-                        ▶ Try Demo
-                    </button>
-                    <button @click="tab = 'monitor'"
-                        :class="tab === 'monitor' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'"
-                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors">Live Monitor</button>
-                    <button @click="tab = 'journal'"
-                        :class="tab === 'journal' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'"
-                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors">Trade Journal</button>
-                    <button @click="tab = 'import'"
-                        :class="tab === 'import' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'"
-                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors">Import Data</button>
-                </div>
+                <h1 class="font-bold text-lg text-white tracking-tight">PnL Watchdog</h1>
+                <span
+                    class="text-[10px] uppercase font-bold tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">Alpha</span>
             </div>
+
+            <!-- Tab Switcher (Pill) -->
+            <nav class="hidden md:flex bg-black/40 rounded-full p-1 border border-white/5">
+                <button @click="tab='monitor'"
+                    :class="tab==='monitor' ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'"
+                    class="px-4 py-1.5 rounded-full text-sm font-medium transition-all">Live Monitor</button>
+                <button @click="tab='journal'"
+                    :class="tab==='journal' ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'"
+                    class="px-4 py-1.5 rounded-full text-sm font-medium transition-all">Journal</button>
+                <button @click="tab='import'"
+                    :class="tab==='import' ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'"
+                    class="px-4 py-1.5 rounded-full text-sm font-medium transition-all">Import</button>
+            </nav>
+
+            <button @click="startDemo()" :disabled="demoRunning || huntScore > 0"
+                class="group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <span class="w-2 h-2 rounded-full bg-emerald-500" :class="demoRunning ? 'animate-ping' : ''"></span>
+                <span class="text-xs font-bold uppercase tracking-wide"
+                    x-text="demoRunning ? 'Replaying...' : 'Demo Mode'"></span>
+            </button>
         </div>
-    </nav>
+    </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 py-8">
+    <main class="flex-1 pt-24 pb-12 px-4">
+        <div class="max-w-7xl mx-auto">
 
-        <!-- Live Monitor Tab -->
-        <div x-show="tab === 'monitor'" x-cloak class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Hunt Score Card -->
-                <div class="col-span-1 bg-slate-950 border border-slate-800 rounded-xl p-6 relative overflow-hidden">
-                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-4">Live Hunt Risk</h3>
-                    <div class="flex flex-col items-center justify-center py-6">
-                        <div class="text-6xl font-black tabular-nums tracking-tighter" :class="riskColor(huntScore)">
-                            <span x-text="huntScore > 0 ? huntScore.toFixed(0) : '--'"></span>
+            <!-- Mobile Tabs -->
+            <div class="md:hidden flex mb-6 bg-black/40 rounded-lg p-1">
+                <button @click="tab='monitor'"
+                    class="flex-1 py-2 text-xs font-bold uppercase tracking-wide text-center rounded"
+                    :class="tab==='monitor' ? 'bg-slate-800 text-white' : 'text-slate-500'">Monitor</button>
+                <button @click="tab='journal'"
+                    class="flex-1 py-2 text-xs font-bold uppercase tracking-wide text-center rounded"
+                    :class="tab==='journal' ? 'bg-slate-800 text-white' : 'text-slate-500'">Journal</button>
+                <button @click="tab='import'"
+                    class="flex-1 py-2 text-xs font-bold uppercase tracking-wide text-center rounded"
+                    :class="tab==='import' ? 'bg-slate-800 text-white' : 'text-slate-500'">Import</button>
+            </div>
+
+            <!-- DASHBOARD VIEW -->
+            <div x-show="tab === 'monitor'" x-cloak class="grid grid-cols-1 lg:grid-cols-12 gap-6 auto-rows-min">
+
+                <!-- 1. Main Chart (Large) -->
+                <div class="lg:col-span-8 glass-card rounded-2xl p-1 relative overflow-hidden group min-h-[400px]">
+                    <div
+                        class="absolute inset-0 bg-blue-600/5 blur-3xl group-hover:bg-blue-600/10 transition-colors duration-1000">
+                    </div>
+                    <div class="relative z-10 flex flex-col h-full p-5">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-white font-semibold text-lg flex items-center gap-2">
+                                    Kyle's Lambda
+                                    <span
+                                        class="text-[10px] text-slate-500 border border-slate-700 px-1.5 py-0.5 rounded">RUST
+                                        ENGINE</span>
+                                </h2>
+                                <p class="text-slate-400 text-xs mt-1">Real-time market impact cost per unit volume.</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-mono font-bold text-white tracking-tighter"
+                                    x-text="currentLambda > 0 ? currentLambda.toFixed(4) : '0.0000'"></div>
+                                <div class="text-xs text-slate-500 font-mono">USD / Unit</div>
+                            </div>
                         </div>
-                        <div class="text-sm mt-2 font-medium" :class="riskColor(huntScore)"
-                            x-text="huntScore > 0 ? riskLabel(huntScore) : 'WAITING FOR DATA'"></div>
+                        <div class="flex-1 w-full relative">
+                            <canvas id="mainChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Lambda Chart -->
-                <div class="col-span-2 bg-slate-950 border border-slate-800 rounded-xl p-6">
-                    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Market Impact (Kyle's
-                        Lambda)</h3>
-                    <canvas id="lambdaChart" class="w-full h-48"></canvas>
+                <!-- 2. Risk Gauge (Sidebar Top) -->
+                <div
+                    class="lg:col-span-4 glass-card rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden h-[300px]">
+                    <div
+                        class="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent">
+                    </div>
+
+                    <h3 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">Execution Risk Score
+                    </h3>
+
+                    <div class="relative w-40 h-40 flex items-center justify-center">
+                        <!-- Animated Ring -->
+                        <svg class="absolute inset-0 w-full h-full transform -rotate-90">
+                            <circle cx="80" cy="80" r="70" stroke="currentColor" stroke-width="8" fill="transparent"
+                                class="text-slate-800" />
+                            <circle cx="80" cy="80" r="70" stroke="currentColor" stroke-width="8" fill="transparent"
+                                :class="riskColor" :stroke-dasharray="440"
+                                :stroke-dashoffset="440 - (440 * huntScore / 100)"
+                                class="transition-all duration-1000 ease-out" />
+                        </svg>
+
+                        <!-- Score Number -->
+                        <div class="text-center">
+                            <div class="text-5xl font-black text-white font-mono tracking-tighter"
+                                x-text="huntScore > 0 ? huntScore.toFixed(0) : '--'"></div>
+                            <div class="text-[10px] font-bold uppercase mt-1" :class="riskTextColor"
+                                x-text="huntScore > 0 ? riskLabel : 'WAITING'"></div>
+                        </div>
+                    </div>
+
+                    <!-- Alert Banner -->
+                    <div x-show="huntScore > 70" x-transition
+                        class="mt-6 w-full bg-red-500/10 border border-red-500/50 rounded-lg p-3 flex items-center gap-3 animate-pulse">
+                        <div class="text-red-500 text-xl">⚠️</div>
+                        <div>
+                            <div class="text-red-400 text-xs font-bold uppercase">Stop-Loss Hunt</div>
+                            <div class="text-red-300/70 text-[10px]">Predatory algo activity detected.</div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- 3. Pre-Trade Check (Sidebar Bottom) -->
+                <div class="lg:col-span-4 glass-card rounded-2xl p-6">
+                    <h3 class="text-white font-semibold flex items-center gap-2 mb-4">
+                        Flight Check
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    </h3>
+
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-slate-500 uppercase font-bold">Symbol</label>
+                                <input type="text" placeholder="NVDA"
+                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-700">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-slate-500 uppercase font-bold">Size</label>
+                                <input type="number" placeholder="100"
+                                    class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-700">
+                            </div>
+                        </div>
+                        <button
+                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-lg text-sm shadow-neon-blue transition-all active:scale-95">
+                            Analyze Impact
+                        </button>
+                    </div>
+                </div>
+
             </div>
 
-            <!-- Pre-Trade Check -->
-            <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
-                <h3 class="text-lg font-semibold mb-4">Pre-Trade Flight Check</h3>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <input type="text" placeholder="Symbol (e.g. NVDA)"
-                        class="bg-slate-900 border border-slate-700 rounded px-3 py-2 focus:border-blue-500 outline-none">
-                    <input type="number" placeholder="Qty"
-                        class="bg-slate-900 border border-slate-700 rounded px-3 py-2 focus:border-blue-500 outline-none">
-                    <button
-                        class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded transition-colors col-span-2">
-                        Analyze Execution Risk
+            <!-- JOURNAL VIEW -->
+            <div x-show="tab === 'journal'" x-cloak class="glass-card rounded-2xl overflow-hidden min-h-[600px]">
+                <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+                    <div>
+                        <h2 class="text-white font-bold text-lg">Trade Journal</h2>
+                        <p class="text-slate-500 text-xs">Post-trade implementation shortfall analysis.</p>
+                    </div>
+                    <button @click="fetchStats()"
+                        class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors">
+                        Refresh Data
                     </button>
                 </div>
-            </div>
-        </div>
 
-        <!-- Trade Journal Tab -->
-        <div x-show="tab === 'journal'" x-cloak>
-            <div class="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
-                <div class="p-6 border-b border-slate-800 flex justify-between items-center">
-                    <h3 class="text-lg font-semibold">Trade History</h3>
-                    <button @click="fetchStats()" class="text-sm text-blue-400 hover:text-blue-300">Refresh</button>
-                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-slate-400 uppercase bg-slate-900">
+                        <thead class="text-xs text-slate-500 uppercase font-mono bg-black/20">
                             <tr>
-                                <th class="px-6 py-3">Time</th>
-                                <th class="px-6 py-3">Symbol</th>
-                                <th class="px-6 py-3">Side</th>
-                                <th class="px-6 py-3 text-right">Qty</th>
-                                <th class="px-6 py-3 text-right">Price</th>
-                                <th class="px-6 py-3">Broker</th>
+                                <th class="px-6 py-4 font-normal">Time</th>
+                                <th class="px-6 py-4 font-normal">Ticker</th>
+                                <th class="px-6 py-4 font-normal">Side</th>
+                                <th class="px-6 py-4 font-normal text-right">Size</th>
+                                <th class="px-6 py-4 font-normal text-right">Px</th>
+                                <th class="px-6 py-4 font-normal">Source</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800">
+                        <tbody class="divide-y divide-white/5">
                             <template x-for="trade in recentTrades" :key="trade.timestamp">
-                                <tr class="hover:bg-slate-900/50 transition-colors">
-                                    <td class="px-6 py-4 font-mono text-slate-400" x-text="formatDate(trade.timestamp)">
-                                    </td>
-                                    <td class="px-6 py-4 font-bold text-white" x-text="trade.symbol"></td>
+                                <tr class="hover:bg-white/5 transition-colors group">
+                                    <td class="px-6 py-4 font-mono text-slate-400 group-hover:text-white"
+                                        x-text="formatDate(trade.timestamp)"></td>
+                                    <td class="px-6 py-4 font-bold text-white group-hover:text-blue-400 transition-colors"
+                                        x-text="trade.symbol"></td>
                                     <td class="px-6 py-4">
-                                        <span class="px-2 py-1 rounded text-xs font-bold"
-                                            :class="trade.side.toLowerCase() === 'buy' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'"
-                                            x-text="trade.side.toUpperCase()"></span>
+                                        <span
+                                            class="px-2 py-1 rounded text-[10px] font-bold tracking-wide uppercase border bg-opacity-10"
+                                            :class="trade.side.toLowerCase() === 'buy' ? 'border-green-500/20 bg-green-500 text-green-400' : 'border-red-500/20 bg-red-500 text-red-400'"
+                                            x-text="trade.side"></span>
                                     </td>
-                                    <td class="px-6 py-4 text-right tabular-nums" x-text="trade.qty"></td>
-                                    <td class="px-6 py-4 text-right tabular-nums text-slate-300" x-text="trade.price">
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="px-2 py-1 rounded text-xs bg-slate-800 text-slate-400"
-                                            x-text="trade.broker"></span>
-                                    </td>
+                                    <td class="px-6 py-4 text-right font-mono" x-text="trade.qty"></td>
+                                    <td class="px-6 py-4 text-right font-mono text-slate-300" x-text="trade.price"></td>
+                                    <td class="px-6 py-4 text-slate-500 text-xs uppercase font-bold"
+                                        x-text="trade.broker"></td>
                                 </tr>
                             </template>
                         </tbody>
                     </table>
                 </div>
-                <div x-show="recentTrades.length === 0" class="p-12 text-center text-slate-500">
-                    No trades found. Go to Import tab.
+
+                <div x-show="recentTrades.length === 0"
+                    class="flex flex-col items-center justify-center py-20 text-slate-600">
+                    <div class="text-4xl mb-4 opacity-50">📂</div>
+                    <p class="text-sm">No trades recorded.</p>
+                    <button @click="tab='import'"
+                        class="mt-4 text-blue-400 hover:text-blue-300 text-xs font-bold uppercase tracking-wide">Import
+                        Data &rarr;</button>
                 </div>
             </div>
-        </div>
 
-        <!-- Import Tab -->
-        <div x-show="tab === 'import'" x-cloak class="max-w-2xl mx-auto">
-            <div class="bg-slate-950 border border-slate-800 rounded-xl p-8 text-center space-y-6">
-                <div
-                    class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto text-blue-400 text-2xl">
-                    📥
+            <!-- IMPORT VIEW -->
+            <div x-show="tab === 'import'" x-cloak class="max-w-3xl mx-auto">
+                <div class="glass-card rounded-2xl p-10 text-center relative overflow-hidden">
+                    <div
+                        class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-50">
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-white mb-2">Import Data</h2>
+                    <p class="text-slate-400 text-sm mb-8">Drag and drop your broker's tradebook CSV.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Zerodha Box -->
+                        <label class="group relative cursor-pointer">
+                            <div
+                                class="absolute inset-0 bg-blue-600/20 blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-500">
+                            </div>
+                            <div
+                                class="relative bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl p-8 hover:border-blue-500 hover:bg-slate-800 transition-all flex flex-col items-center gap-4">
+                                <div
+                                    class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xl group-hover:scale-110 transition-transform">
+                                    ⚡️</div>
+                                <div class="text-center">
+                                    <span class="block text-white font-bold">Zerodha</span>
+                                    <span class="text-xs text-slate-500">Tradebook CSV</span>
+                                </div>
+                            </div>
+                            <input type="file" class="hidden" @change="uploadFile($event, 'zerodha')">
+                        </label>
+
+                        <!-- Binance Box -->
+                        <label class="group relative cursor-pointer">
+                            <div
+                                class="absolute inset-0 bg-amber-500/20 blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-500">
+                            </div>
+                            <div
+                                class="relative bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl p-8 hover:border-amber-500 hover:bg-slate-800 transition-all flex flex-col items-center gap-4">
+                                <div
+                                    class="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 text-xl group-hover:scale-110 transition-transform">
+                                    🔶</div>
+                                <div class="text-center">
+                                    <span class="block text-white font-bold">Binance</span>
+                                    <span class="text-xs text-slate-500">History CSV</span>
+                                </div>
+                            </div>
+                            <input type="file" class="hidden" @change="uploadFile($event, 'binance')">
+                        </label>
+                    </div>
+
+                    <div id="uploadStatus" class="mt-8 text-sm font-medium h-6"></div>
                 </div>
-                <h3 class="text-xl font-bold">Import Trade History</h3>
-                <p class="text-slate-400">Upload your broker's tradebook CSV to analyze past execution quality.</p>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <label
-                        class="block p-6 border-2 border-dashed border-slate-700 rounded-xl hover:border-blue-500 hover:bg-slate-900 cursor-pointer transition-all group">
-                        <span class="block text-lg font-semibold mb-1 group-hover:text-blue-400">Zerodha</span>
-                        <span class="text-xs text-slate-500">Tradebook CSV</span>
-                        <input type="file" class="hidden" @change="uploadFile($event, 'zerodha')">
-                    </label>
-
-                    <label
-                        class="block p-6 border-2 border-dashed border-slate-700 rounded-xl hover:border-blue-500 hover:bg-slate-900 cursor-pointer transition-all group">
-                        <span class="block text-lg font-semibold mb-1 group-hover:text-amber-400">Binance</span>
-                        <span class="text-xs text-slate-500">Trade History CSV</span>
-                        <input type="file" class="hidden" @change="uploadFile($event, 'binance')">
-                    </label>
-                </div>
-                <div id="uploadStatus" class="text-sm font-medium h-6"></div>
             </div>
-        </div>
 
+        </div>
     </main>
 
+    <!-- Logic -->
     <script>
         function dashboard() {
             return {
                 tab: 'monitor',
-                huntScore: 15,
+                huntScore: 0,
+                currentLambda: 0,
                 recentTrades: [],
+                chart: null,
+                demoRunning: false,
+
+                get riskColor() {
+                    if (this.huntScore < 30) return 'text-emerald-400 stroke-emerald-500';
+                    if (this.huntScore < 70) return 'text-amber-400 stroke-amber-500';
+                    return 'text-red-500 stroke-red-500';
+                },
+                get riskTextColor() {
+                    if (this.huntScore < 30) return 'text-emerald-400';
+                    if (this.huntScore < 70) return 'text-amber-400';
+                    return 'text-red-500';
+                },
+                get riskLabel() {
+                    if (this.huntScore < 30) return 'Safe';
+                    if (this.huntScore < 70) return 'Caution';
+                    return 'SL Hunt';
+                },
 
                 init() {
-                    // Start in 'Waiting' state - Real data only
-                    this.huntScore = 0;
-                    this.fetchStats();
                     this.initChart();
+                    this.fetchStats();
+                    // Connect WebSocket or Poll here in real version
+                },
+
+                initChart() {
+                    const ctx = document.getElementById('mainChart').getContext('2d');
+
+                    // Gradient Fill
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+                    gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+                    this.chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: Array(30).fill(''),
+                            datasets: [{
+                                label: 'Lambda',
+                                data: Array(30).fill(null), // Empty init
+                                borderColor: '#3b82f6',
+                                backgroundColor: gradient,
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                pointHoverRadius: 4,
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    backgroundColor: 'rgba(0,0,0,0.8)',
+                                    titleColor: '#fff',
+                                    bodyColor: '#cbd5e1',
+                                    borderColor: 'rgba(255,255,255,0.1)',
+                                    borderWidth: 1
+                                }
+                            },
+                            scales: {
+                                x: { display: false },
+                                y: {
+                                    display: true,
+                                    grid: { color: 'rgba(255,255,255,0.05)' },
+                                    ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+                                }
+                            },
+                            animation: { duration: 0 },
+                            interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                        }
+                    });
+                },
+
+                updateChart(val) {
+                    if (!this.chart) return;
+                    this.currentLambda = val / 10000; // Fake scale for demo
+                    this.chart.data.datasets[0].data.push(this.currentLambda);
+                    this.chart.data.datasets[0].data.shift();
+                    this.chart.update();
+                },
+
+                async startDemo() {
+                    this.demoRunning = true;
+                    this.tab = 'monitor';
+
+                    // Simulation Data
+                    const sequence = [
+                        10, 11, 12, 11, 13, 15, 18,
+                        30, 45, 60, 80, 95, 100, // Hunt
+                        80, 60, 40, 25, 15, 10
+                    ];
+
+                    for (const score of sequence) {
+                        this.huntScore = score;
+                        this.updateChart(score + (Math.random() * 5));
+                        await new Promise(r => setTimeout(r, 600));
+                    }
+                    this.demoRunning = false;
+                },
+
+                formatDate(iso) {
+                    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 },
 
                 async fetchStats() {
@@ -194,115 +456,32 @@
                         const res = await fetch('/stats/pnl');
                         const data = await res.json();
                         this.recentTrades = data.recent_activity || [];
-                    } catch (e) {
-                        console.error("Failed to fetch stats", e);
-                    }
+                    } catch (e) { console.error(e); }
                 },
 
                 async uploadFile(e, broker) {
                     const file = e.target.files[0];
                     if (!file) return;
+                    const status = document.getElementById('uploadStatus');
+                    status.innerText = 'Uploading...';
+                    status.className = 'text-blue-400 animate-pulse';
 
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    const statusEl = document.getElementById('uploadStatus');
-                    statusEl.innerText = `Uploading to ${broker}...`;
-                    statusEl.className = "text-blue-400 animate-pulse";
+                    const fd = new FormData();
+                    fd.append('file', file);
 
                     try {
-                        const res = await fetch(`/import/${broker}`, {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const data = await res.json();
-                        if (data.status === 'success') {
-                            statusEl.innerText = `✅ Imported ${data.imported_count} trades!`;
-                            statusEl.className = "text-green-400";
+                        const res = await fetch(`/import/${broker}`, { method: 'POST', body: fd });
+                        const d = await res.json();
+                        if (d.status === 'success') {
+                            status.innerText = `Success! ${d.imported_count} trades.`;
+                            status.className = 'text-emerald-400';
                             this.fetchStats();
                             setTimeout(() => this.tab = 'journal', 1000);
-                        } else {
-                            throw new Error(data.message || 'Import failed');
-                        }
+                        } else throw new Error(d.message);
                     } catch (err) {
-                        statusEl.innerText = `❌ Error: ${err.message}`;
-                        statusEl.className = "text-red-400";
+                        status.innerText = 'Error: ' + err.message;
+                        status.className = 'text-red-400';
                     }
-                },
-
-                riskColor(score) {
-                    if (score < 30) return 'text-green-500';
-                    if (score < 70) return 'text-yellow-500';
-                    return 'text-red-500';
-                },
-
-                riskLabel(score) {
-                    if (score < 30) return 'LOW RISK (SAFE)';
-                    if (score < 70) return 'CAUTION';
-                    return 'DANGER: SL HUNT LIKELY';
-                },
-
-                formatDate(isoStr) {
-                    return new Date(isoStr).toLocaleString();
-                },
-
-                // Chart.js Setup
-                chart: null,
-                initChart() {
-                    const ctx = document.getElementById('lambdaChart').getContext('2d');
-                    this.chart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: Array(20).fill(''),
-                            datasets: [{
-                                label: 'Lambda (Impact)',
-                                data: Array(20).fill(null),
-                                borderColor: '#3b82f6',
-                                tension: 0.4,
-                                borderWidth: 2,
-                                pointRadius: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                y: { display: false, min: 0, max: 100 },
-                                x: { display: false }
-                            },
-                            animation: { duration: 0 }
-                        }
-                    });
-                },
-
-                updateChart(val) {
-                    if (!this.chart) return;
-                    this.chart.data.datasets[0].data.push(val);
-                    this.chart.data.datasets[0].data.shift();
-                    this.chart.update();
-                },
-
-                demoRunning: false,
-                async startDemo() {
-                    this.demoRunning = true;
-                    this.tab = 'monitor';
-
-                    // Sequence: Normal -> Volatility -> Hunt
-                    const sequence = [
-                        10, 12, 11, 15, // Normal
-                        25, 30, 45, 50, // Volatility Spike
-                        65, 75, 85, 95, // Hunt Detected!
-                        98, 99, 85, 60, // Peak & Cooldown
-                        40, 20, 15, 10  // Return to Normal
-                    ];
-
-                    for (const score of sequence) {
-                        this.huntScore = score;
-                        this.updateChart(score);
-                        await new Promise(r => setTimeout(r, 800)); // 0.8s update rate
-                    }
-                    this.demoRunning = false;
                 }
             }
         }
