@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    api_key VARCHAR(64) UNIQUE,
+    api_key VARCHAR(64) UNIQUE, -- stores SHA-256 hash of key, never plaintext
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     preferences JSONB DEFAULT '{}'::jsonb
 );
@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS trade_history (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_trades_user_time ON trade_history(user_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trade_history(symbol);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_dedupe_external
+ON trade_history(user_id, broker, external_order_id)
+WHERE external_order_id IS NOT NULL;
 
 -- 3. RISK ALERTS
 -- Real-time feed of market anomalies

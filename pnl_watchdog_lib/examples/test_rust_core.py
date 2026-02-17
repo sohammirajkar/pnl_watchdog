@@ -6,8 +6,8 @@ sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), '../src')))
 
 # API Keys - Replace with your actual keys
-DATABENTO_API_KEY = "db-S4bRFNjiSvC8dB9HiKPCkSetmFVKK"
-ALPACA_API_KEY = "PKKLANPTLU2MGY524PBHBTLZXB"
+DATABENTO_API_KEY = "REPLACE_WITH_DATABENTO_API_KEY"
+ALPACA_API_KEY = "REPLACE_WITH_ALPACA_API_KEY"
 ALPACA_SECRET_KEY = "4kHf7KxrBVdtcXthRXEiHPndrW2MZvtpdAD1qbCS14y3"
 try:
     from pnl_watchdog import calculate_order_flow_metrics, calculate_whale_metrics

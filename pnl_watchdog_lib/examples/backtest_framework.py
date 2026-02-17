@@ -464,7 +464,7 @@ def main():
         sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
         from pnl_watchdog.brokers.databento import DatabentoAdapter
         
-        api_key = "db-ieJvGbF9HQ3CaMGUuVXLC4YhFcs3Q"
+        api_key = "REPLACE_WITH_DATABENTO_API_KEY"
         adapter = DatabentoAdapter(api_key)
         
         symbols = ["SPY", "AAPL", "NVDA"]

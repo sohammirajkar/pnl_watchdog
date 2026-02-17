@@ -17,7 +17,7 @@ def test_realtime_features():
     # Initialize Watchdog
     dog = PnLWatchdog(
         broker="alpaca",
-        api_key=os.getenv("ALPACA_API_KEY", "PKRGGGVCDV6PVABSPDZNHRBXMZ"),
+        api_key=os.getenv("ALPACA_API_KEY", "REPLACE_WITH_ALPACA_API_KEY"),
         api_secret=os.getenv("ALPACA_API_SECRET", "BrQS4dvqCNoGnXBg6iuGAkygYCQHvt23zbzbQxd7FU1n"),
         paper=True
     )

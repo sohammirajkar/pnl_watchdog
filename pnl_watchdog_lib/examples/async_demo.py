@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.abspath(
 
 
 # CONFIG
-API_KEY = "PKV34B7RJEGPI2MOQY5BMIKLIV"
-API_SECRET = "DiSmQrfN1FRxGVcaqUCkUPc44rNroWXisJ9twB5FRvTB"
+API_KEY = "REPLACE_WITH_ALPACA_API_KEY"
+API_SECRET = "REPLACE_WITH_API_SECRET"
 
 
 async def trading_bot_main():

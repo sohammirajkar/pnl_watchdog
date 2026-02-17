@@ -23,7 +23,7 @@ def test_liquidity_surface_alpaca():
     print("="*70)
     
     # 1. Get API keys from environment
-    api_key = os.getenv("ALPACA_API_KEY", "PKBTQZWTP75S23P5CX5MOWIXK2")
+    api_key = os.getenv("ALPACA_API_KEY", "REPLACE_WITH_ALPACA_API_KEY")
     api_secret = os.getenv("ALPACA_API_SECRET", "9LNtBAx1TzK233G3ARf6gX6M5AKbKEa2tknt3VM3mH9W")
     
     if not api_key or not api_secret:

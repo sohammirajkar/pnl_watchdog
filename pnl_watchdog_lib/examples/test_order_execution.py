@@ -38,7 +38,7 @@ def test_execution():
         # Demo with DataBento (read-only)
         dog = PnLWatchdog(
             broker="databento",
-            api_key="db-ieJvGbF9HQ3CaMGUuVXLC4YhFcs3Q"
+            api_key="REPLACE_WITH_DATABENTO_API_KEY"
         )
         
         # Show what would happen

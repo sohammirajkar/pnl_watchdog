@@ -16,7 +16,7 @@ def test_databento_features():
     
     # 1. Initialize Watchdog with DataBento
     # API Key provided by user
-    API_KEY = "db-ieJvGbF9HQ3CaMGUuVXLC4YhFcs3Q"
+    API_KEY = "REPLACE_WITH_DATABENTO_API_KEY"
     
     print(f"\n📡 Connecting to DataBento (NASDAQ TotalView)...")
     try:

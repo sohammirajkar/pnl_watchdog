@@ -35,13 +35,15 @@ except ImportError:
 
 # DataBento for live market data
 import os
-DATABENTO_API_KEY = os.getenv("DATABENTO_API_KEY", "db-ieJvGbF9HQ3CaMGUuVXLC4YhFcs3Q")
+DATABENTO_API_KEY = os.getenv("DATABENTO_API_KEY")
 
 try:
+    if not DATABENTO_API_KEY:
+        raise ValueError("DATABENTO_API_KEY not set")
     from pnl_watchdog.brokers.databento import DatabentoAdapter
     DATABENTO_ADAPTER = DatabentoAdapter(DATABENTO_API_KEY)
     DATABENTO_AVAILABLE = True
-    print(f"[Alpha Console] ✅ DataBento connected: {DATABENTO_API_KEY[:4]}...{DATABENTO_API_KEY[-4:]}")
+    print("[Alpha Console] ✅ DataBento connected")
 except Exception as e:
     DATABENTO_ADAPTER = None
     DATABENTO_AVAILABLE = False

@@ -25,7 +25,7 @@ def test_liquidity_surface_databento():
     print("="*70)
     
     # 1. Get API key
-    api_key = os.getenv("DATABENTO_API_KEY", "db-invkRfqfBTspVudMSgA3qHEDJYH4W")
+    api_key = os.getenv("DATABENTO_API_KEY", "REPLACE_WITH_DATABENTO_API_KEY")
     
     if not api_key:
         print("\n❌ ERROR: DataBento API key not found!")

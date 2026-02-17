@@ -13,11 +13,11 @@ import databento as db
 # --- CONFIG ---
 # ⚠️ REPLACE WITH REAL KEYS FOR THE SCREENSHOT
 # Use your real Alpaca Key (e.g., Paper Trading key)
-ALPACA_KEY = "PKPELYDWCZ6RM4ODQDP4YPOA3N"
+ALPACA_KEY = "REPLACE_WITH_ALPACA_API_KEY"
 # Use your real Alpaca Secret
-ALPACA_SECRET = "8WXEeSd9wa3NJKNxrDDk7WSCeBN6Ef9NNh7cceKR9JNG"
+ALPACA_SECRET = "REPLACE_WITH_ALPACA_API_SECRET"
 # Use your real Databento Key (starts with db-)
-DATABENTO_KEY = "db-4YkcnL9CbMJwsD8Uh7vvSfgUYuHqr"
+DATABENTO_KEY = "REPLACE_WITH_DATABENTO_API_KEY"
 
 # The "Controversial" Tickers
 SYMBOLS = ["AAPL", "GME"]  # Keeping it focused for the stress test

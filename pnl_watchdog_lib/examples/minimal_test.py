@@ -29,7 +29,7 @@ try:
     print("✅ Databento adapter imported successfully")
     
     # Test with your key
-    adapter = DatabentoAdapter('db-S4bRFNjiSvC8dB9HiKPCkSetmFVKK')
+    adapter = DatabentoAdapter('REPLACE_WITH_DATABENTO_API_KEY')
     print("✅ Databento adapter initialized successfully")
     
     # Test getting candles (this will show an error if the key is invalid)

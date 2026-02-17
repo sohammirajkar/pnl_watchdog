@@ -48,7 +48,7 @@ def run_profit_demonstration():
     print("█"*60 + "\n")
 
     # Use your actual Databento key here
-    DATABENTO_KEY = "db-S4bRFNjiSvC8dB9HiKPCkSetmFVKK"  # Replace with your actual key
+    DATABENTO_KEY = "REPLACE_WITH_DATABENTO_API_KEY"  # Replace with your actual key
     
     dog = PnLWatchdog(
         broker="databento",

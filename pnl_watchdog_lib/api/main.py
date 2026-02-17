@@ -13,6 +13,7 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -23,6 +24,14 @@ from .models import (
     ExecutionPassportRequest, ExecutionPassportResponse,
     HealthResponse, ComponentScores, RawMetrics, Recommendations, HuntRiskSummary
 )
+from .auth import (
+    RegisterRequest,
+    RegisterResponse,
+    create_or_rotate_api_key,
+    get_current_user,
+)
+from ..db.db_connect import get_db, init_db
+from ..db.models import User
 
 # Import core functions
 try:
@@ -75,9 +84,17 @@ except ImportError as e:
 
 
 # CORS for web clients
+allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:5173",
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,10 +113,8 @@ VALID_API_KEYS = {
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     """Simple API key verification. Returns None for free tier (rate limited)."""
-    # For now, allow all requests but log if no key
     if x_api_key and x_api_key not in VALID_API_KEYS:
-        # Still allow but could rate limit here
-        pass
+        raise HTTPException(status_code=401, detail="Invalid X-API-Key.")
     return x_api_key
 
 
@@ -118,6 +133,33 @@ async def health_check():
         rust_core_available=RUST_CORE_AVAILABLE,
         timestamp=datetime.now(timezone.utc).isoformat()
     )
+
+
+@app.post("/v1/auth/register", response_model=RegisterResponse, tags=["Auth"])
+async def register_api_user(
+    request: RegisterRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Register a user email and return an API key.
+    If the email already exists, key is rotated and returned once.
+    """
+    user, plain_key = await create_or_rotate_api_key(db, request.email)
+    return RegisterResponse(
+        user_id=str(user.id),
+        email=user.email,
+        api_key=plain_key,
+    )
+
+
+@app.get("/v1/auth/me", tags=["Auth"])
+async def whoami(current_user: User = Depends(get_current_user)):
+    """Validate API key and return the authenticated user."""
+    return {
+        "user_id": str(current_user.id),
+        "email": current_user.email,
+        "created_at": current_user.created_at,
+    }
 
 @app.get("/", response_class=HTMLResponse, tags=["Frontend"])
 async def serve_landing():
@@ -305,6 +347,9 @@ async def startup_event():
     print("🐶 PnL Watchdog API v0.9.0 starting...")
     print(f"   Rust Core: {'✅' if RUST_CORE_AVAILABLE else '❌'}")
     print(f"   Hunt Detector: {'✅' if HUNT_DETECTOR_AVAILABLE else '❌'}")
+    if os.environ.get("AUTO_INIT_DB", "true").lower() == "true":
+        await init_db()
+        print("   DB Init: ✅")
 
 
 if __name__ == "__main__":

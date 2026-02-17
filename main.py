@@ -12,27 +12,19 @@ from sqlalchemy.orm import sessionmaker, Session
 
 # --- ADD THIS FUNCTION ---
 def send_discord_alert(message: str):
-    # REPLACE WITH YOUR ACTUAL DISCORD WEBHOOK URL
-    WEBHOOK_URL = "https://discord.com/api/webhooks/1441137346044231817/RfVB0xdLRPngSmIi-FQ87IOTdgOKc5gkvuVM4oO4GcsgJsLrrT2_53k1YH7TZhdb8Xcp"
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+    if not webhook_url:
+        return
 
     data = {
         "content": message,
         "username": "PnL Watchdog"
     }
     try:
-        requests.post(WEBHOOK_URL, json=data)
+        response = requests.post(webhook_url, json=data, timeout=5)
         response.raise_for_status()
     except Exception as e:
         print(f"Failed to send Discord alert: {e}")
-
-# --- UPDATE THE LOGIC INSIDE verify_trade_execution ---
-# Scroll down to the 'else' block where we print "🚨 ALERT"
-        if found:
-            print(f"✅ SUCCESS: Trade confirmed on Broker.")
-        else:
-            msg = f"🚨 CRITICAL ALERT: Strategy '{signal.strategy_id}' signal for {signal.symbol} is MISSING on Broker!"
-            print(msg)
-            send_discord_alert(msg)  # <--- CALL THE NEW FUNCTION HERE
 
 
 # --- DATABASE SETUP (Local SQLite) ---
@@ -121,7 +113,9 @@ async def verify_trade_execution(signal: TradeSignal, api_key: str, api_secret: 
         if found:
             print(f"✅ SUCCESS: Trade confirmed on Broker.")
         else:
-            print(f"🚨 ALERT: Trade MISSING on Broker! Alerting user...")
+            msg = f"🚨 ALERT: Trade MISSING on Broker for strategy '{signal.strategy_id}' ({signal.symbol})."
+            print(msg)
+            send_discord_alert(msg)
 
     except Exception as e:
         print(f"❌ EXCEPTION: {e}")

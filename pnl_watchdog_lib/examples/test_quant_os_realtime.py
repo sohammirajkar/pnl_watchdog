@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../s
 from pnl_watchdog.watchdog import PnLWatchdog
 
 # DataBento API Key (provided by user)
-DATABENTO_API_KEY = "db-ieJvGbF9HQ3CaMGUuVXLC4YhFcs3Q"
+DATABENTO_API_KEY = "REPLACE_WITH_DATABENTO_API_KEY"
 
 def print_header(text):
     print("\n" + "=" * 70)

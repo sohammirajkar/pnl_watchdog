@@ -1,10 +1,15 @@
 import requests
+import os
 
-# 1. PASTE YOUR WEBHOOK URL HERE
-WEBHOOK_URL = "https://discord.com/api/webhooks/1441137346044231817/RfVB0xdLRPngSmIi-FQ87IOTdgOKc5gkvuVM4oO4GcsgJsLrrT2_53k1YH7TZhdb8Xcp"
+# 1. Set DISCORD_WEBHOOK_URL in your environment before running
+WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
 
 def test_discord():
+    if not WEBHOOK_URL:
+        print("❌ DISCORD_WEBHOOK_URL is not set.")
+        return
+
     print(f"Attempting to send to: {WEBHOOK_URL[:30]}...")
 
     data = {
