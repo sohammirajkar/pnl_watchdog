@@ -60,5 +60,4 @@ Research = "https://github.com/sohammirajkar/pnl_watchdog/tree/main/research"
 
 
 [tool.maturin]
-python-source = "src"
 bindings = "pyo3"
